@@ -172,3 +172,112 @@ def create_employee_normalizer(
         return None
 
     return normalize_employee_ref
+
+
+# Mapping of incident type variants to canonical types
+INCIDENT_TYPE_PATTERNS: dict[str, list[str]] = {
+    "machine_failure": [
+        "machine_failure",
+        "machine failure",
+        "machine_fail",
+        "mech_fail",
+        "mechf_ail",
+        "mach failure",
+        "machinef ailure",
+        "mahcine failure",
+    ],
+    "safety_violation": [
+        "safety_violation",
+        "safety violation",
+        "safety_viol",
+        "safety-violation",
+        "safety vio.",
+    ],
+    "near_miss": [
+        "near_miss",
+        "near miss",
+        "near-miss",
+        "nearmiss",
+    ],
+    "injury_minor": [
+        "injury_minor",
+        "minor injury",
+        "min_inj",
+        "minor inj.",
+    ],
+    "injury_major": [
+        "injury_major",
+        "major injury",
+        "maj_inj",
+        "major inj.",
+    ],
+    "quality_defect": [
+        "quality_defect",
+        "quality defect",
+        "qa_defect",
+        "quality issue",
+    ],
+    "power_event": [
+        "power_event",
+        "power event",
+        "pwr_evt",
+        "power fluctuation",
+    ],
+    "unknown": [
+        "unknown",
+        "unk",
+        "?",
+        "n/a",
+    ],
+}
+
+# Build reverse lookup: variant -> canonical
+_INCIDENT_TYPE_LOOKUP: dict[str, str] = {}
+for canonical, variants in INCIDENT_TYPE_PATTERNS.items():
+    for variant in variants:
+        _INCIDENT_TYPE_LOOKUP[variant.lower()] = canonical
+
+
+def normalize_incident_type(raw: str | None) -> str | None:
+    """
+    Normalize a raw incident type to canonical format.
+
+    Args:
+        raw: The raw incident_type_raw string from incident_reports_raw
+
+    Returns:
+        Canonical incident type (e.g., 'machine_failure') or None if unmatchable
+
+    Examples:
+        >>> normalize_incident_type('Machine Failure')
+        'machine_failure'
+        >>> normalize_incident_type('MECH_FAIL')
+        'machine_failure'
+        >>> normalize_incident_type('Near Miss')
+        'near_miss'
+        >>> normalize_incident_type('')
+        >>> normalize_incident_type(None)
+    """
+    if raw is None:
+        return None
+
+    # Clean whitespace and lowercase
+    cleaned = raw.strip().lower()
+
+    # Handle empty values
+    if cleaned == "":
+        return None
+
+    # Direct lookup
+    if cleaned in _INCIDENT_TYPE_LOOKUP:
+        return _INCIDENT_TYPE_LOOKUP[cleaned]
+
+    # Try removing extra spaces and special chars for typo handling
+    normalized = re.sub(r"[^a-z]", "", cleaned)
+    for canonical, variants in INCIDENT_TYPE_PATTERNS.items():
+        for variant in variants:
+            variant_normalized = re.sub(r"[^a-z]", "", variant.lower())
+            if normalized == variant_normalized:
+                return canonical
+
+    return None

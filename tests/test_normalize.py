@@ -7,6 +7,7 @@ from pipeline.normalize import (
     normalize_machine_ref,
     normalize_shift_code,
     create_employee_normalizer,
+    normalize_incident_type,
 )
 
 
@@ -226,3 +227,78 @@ class TestNormalizeEmployeeRef:
     def test_invalid_name(self, normalizer):
         assert normalizer("John Doe") is None  # Doesn't exist
         assert normalizer("NOBODY HERE") is None
+
+
+class TestNormalizeIncidentType:
+    """Tests for normalize_incident_type function."""
+
+    # Machine failure variants
+    def test_machine_failure(self):
+        assert normalize_incident_type("machine_failure") == "machine_failure"
+        assert normalize_incident_type("Machine Failure") == "machine_failure"
+        assert normalize_incident_type("MECH_FAIL") == "machine_failure"
+        assert normalize_incident_type("machine_fail") == "machine_failure"
+        assert normalize_incident_type("Mach failure") == "machine_failure"
+        assert normalize_incident_type("machine failure ") == "machine_failure"
+
+    def test_machine_failure_typos(self):
+        assert normalize_incident_type("Mahcine Failure") == "machine_failure"
+        assert normalize_incident_type("MachineF ailure") == "machine_failure"
+        assert normalize_incident_type("MECHF_AIL") == "machine_failure"
+
+    # Safety violation variants
+    def test_safety_violation(self):
+        assert normalize_incident_type("safety_violation") == "safety_violation"
+        assert normalize_incident_type("Safety Violation") == "safety_violation"
+        assert normalize_incident_type("SAFETY_VIOL") == "safety_violation"
+        assert normalize_incident_type("safety-violation") == "safety_violation"
+        assert normalize_incident_type("Safety vio.") == "safety_violation"
+
+    # Near miss variants
+    def test_near_miss(self):
+        assert normalize_incident_type("near_miss") == "near_miss"
+        assert normalize_incident_type("Near Miss") == "near_miss"
+        assert normalize_incident_type("NEAR_MISS") == "near_miss"
+        assert normalize_incident_type("near-miss") == "near_miss"
+        assert normalize_incident_type("Nearmiss") == "near_miss"
+
+    # Injury variants
+    def test_injury_minor(self):
+        assert normalize_incident_type("injury_minor") == "injury_minor"
+        assert normalize_incident_type("Minor Injury") == "injury_minor"
+        assert normalize_incident_type("MIN_INJ") == "injury_minor"
+        assert normalize_incident_type("Minor inj.") == "injury_minor"
+
+    def test_injury_major(self):
+        assert normalize_incident_type("injury_major") == "injury_major"
+        assert normalize_incident_type("Major Injury") == "injury_major"
+
+    # Quality defect variants
+    def test_quality_defect(self):
+        assert normalize_incident_type("quality_defect") == "quality_defect"
+        assert normalize_incident_type("Quality Defect") == "quality_defect"
+        assert normalize_incident_type("QA_DEFECT") == "quality_defect"
+        assert normalize_incident_type("Quality issue") == "quality_defect"
+
+    # Power event variants
+    def test_power_event(self):
+        assert normalize_incident_type("power_event") == "power_event"
+        assert normalize_incident_type("Power Event") == "power_event"
+        assert normalize_incident_type("PWR_EVT") == "power_event"
+        assert normalize_incident_type("Power fluctuation") == "power_event"
+
+    # Empty/placeholder values
+    def test_empty_values(self):
+        assert normalize_incident_type(None) is None
+        assert normalize_incident_type("") is None
+        assert normalize_incident_type("   ") is None
+
+    # Unknown/unrecognized
+    def test_unknown(self):
+        assert normalize_incident_type("unknown") == "unknown"
+        assert normalize_incident_type("UNK") == "unknown"
+        assert normalize_incident_type("?") == "unknown"
+
+    def test_unrecognized(self):
+        assert normalize_incident_type("random garbage") is None
+        assert normalize_incident_type("not a real type") is None
