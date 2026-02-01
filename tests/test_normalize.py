@@ -8,6 +8,7 @@ from pipeline.normalize import (
     normalize_shift_code,
     create_employee_normalizer,
     normalize_incident_type,
+    parse_incident_time,
 )
 
 
@@ -302,3 +303,63 @@ class TestNormalizeIncidentType:
     def test_unrecognized(self):
         assert normalize_incident_type("random garbage") is None
         assert normalize_incident_type("not a real type") is None
+
+
+class TestParseIncidentTime:
+    """Tests for parse_incident_time function."""
+
+    # ISO format (YYYY-MM-DD)
+    def test_iso_date_only(self):
+        assert parse_incident_time("2024-07-05") == "2024-07-05 00:00:00"
+        assert parse_incident_time("2025-11-15") == "2025-11-15 00:00:00"
+
+    def test_iso_with_full_time(self):
+        assert parse_incident_time("2024-07-30 16:17:00") == "2024-07-30 16:17:00"
+        assert parse_incident_time("2024-01-15 09:05:30") == "2024-01-15 09:05:30"
+
+    def test_iso_with_partial_time(self):
+        assert parse_incident_time("2024-07-30 16:17") == "2024-07-30 16:17:00"
+        assert parse_incident_time("2024-08-02 17") == "2024-08-02 17:00:00"
+
+    # DD-Mon-YYYY format
+    def test_dmy_date_only(self):
+        assert parse_incident_time("30-Aug-2025") == "2025-08-30 00:00:00"
+        assert parse_incident_time("1-Jan-2024") == "2024-01-01 00:00:00"
+
+    def test_dmy_with_full_time(self):
+        assert parse_incident_time("30-Aug-2025 05:19:00") == "2025-08-30 05:19:00"
+        assert parse_incident_time("27-Mar-2024 17:48:53") == "2024-03-27 17:48:53"
+
+    def test_dmy_with_partial_time(self):
+        assert parse_incident_time("17-Jun-2024 05:44") == "2024-06-17 05:44:00"
+        assert parse_incident_time("27-Apr-2025 16") == "2025-04-27 16:00:00"
+
+    # MM/DD/YYYY format
+    def test_mdy_date_only(self):
+        assert parse_incident_time("05/23/2024") == "2024-05-23 00:00:00"
+        assert parse_incident_time("12/25/2024") == "2024-12-25 00:00:00"
+
+    def test_mdy_with_full_time(self):
+        assert parse_incident_time("06/23/2024 01:56:29") == "2024-06-23 01:56:29"
+        assert parse_incident_time("12/25/2024 14:47:11") == "2024-12-25 14:47:11"
+
+    def test_mdy_with_partial_time(self):
+        assert parse_incident_time("10/27/2024 22:35") == "2024-10-27 22:35:00"
+
+    # Whitespace handling
+    def test_whitespace(self):
+        assert parse_incident_time(" 2024-07-05 ") == "2024-07-05 00:00:00"
+        assert parse_incident_time(" 05/30/2024 02:20:08 ") == "2024-05-30 02:20:08"
+        assert parse_incident_time(" 10-May-2025 19:15 ") == "2025-05-10 19:15:00"
+
+    # Empty/null values
+    def test_empty_values(self):
+        assert parse_incident_time(None) is None
+        assert parse_incident_time("") is None
+        assert parse_incident_time("   ") is None
+
+    # Invalid formats
+    def test_invalid(self):
+        assert parse_incident_time("not a date") is None
+        assert parse_incident_time("2024/07/05") is None  # Wrong separator for ISO
+        assert parse_incident_time("July 5, 2024") is None  # Unsupported format

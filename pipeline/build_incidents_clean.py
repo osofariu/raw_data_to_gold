@@ -27,6 +27,7 @@ from pipeline.normalize import (
     normalize_shift_code,
     normalize_incident_type,
     create_employee_normalizer,
+    parse_incident_time,
 )
 
 DB_PATH = Path(__file__).parent.parent / "data" / "factory_training.db"
@@ -46,12 +47,13 @@ def register_udfs(conn: sqlite3.Connection, employees: list) -> None:
     conn.create_function("normalize_machine_ref", 1, normalize_machine_ref)
     conn.create_function("normalize_shift_code", 1, normalize_shift_code)
     conn.create_function("normalize_incident_type", 1, normalize_incident_type)
+    conn.create_function("parse_incident_time", 1, parse_incident_time)
 
     # Employee normalizer needs lookup data baked in
     normalize_employee_ref = create_employee_normalizer(employees)
     conn.create_function("normalize_employee_ref", 1, normalize_employee_ref)
 
-    print("✓ Registered 4 normalization UDFs")
+    print("✓ Registered 5 normalization UDFs")
 
 
 def cleanup_old_tables(conn: sqlite3.Connection) -> None:
@@ -83,7 +85,8 @@ def create_view(conn: sqlite3.Connection) -> None:
     """Create the comprehensive incidents view with all normalizations."""
 
     conn.execute("DROP VIEW IF EXISTS v_incidents_clean")
-    conn.execute("""
+    conn.execute(
+        """
         CREATE VIEW v_incidents_clean AS
         SELECT 
             incident_id,
@@ -104,10 +107,12 @@ def create_view(conn: sqlite3.Connection) -> None:
             normalize_machine_ref(machine_ref_raw) as machine_code,
             normalize_shift_code(shift_code_ref_raw) as shift_code,
             normalize_employee_ref(employee_ref_raw) as badge_id,
-            normalize_incident_type(incident_type_raw) as incident_type
+            normalize_incident_type(incident_type_raw) as incident_type,
+            parse_incident_time(incident_time_raw) as incident_time
             
         FROM incident_reports_raw
-    """)
+    """
+    )
 
     print("✓ Created view: v_incidents_clean")
 
@@ -123,19 +128,24 @@ def materialize_table(conn: sqlite3.Connection) -> None:
     cursor = conn.execute("SELECT COUNT(*) FROM incidents_clean")
     total = cursor.fetchone()[0]
 
-    cursor = conn.execute("""
+    cursor = conn.execute(
+        """
         SELECT 
             SUM(CASE WHEN machine_code IS NOT NULL THEN 1 ELSE 0 END) as machines,
             SUM(CASE WHEN shift_code IS NOT NULL THEN 1 ELSE 0 END) as shifts,
             SUM(CASE WHEN badge_id IS NOT NULL THEN 1 ELSE 0 END) as employees,
-            SUM(CASE WHEN incident_type IS NOT NULL THEN 1 ELSE 0 END) as types
+            SUM(CASE WHEN incident_type IS NOT NULL THEN 1 ELSE 0 END) as types,
+            SUM(CASE WHEN incident_time IS NOT NULL THEN 1 ELSE 0 END) as times
         FROM incidents_clean
-    """)
-    machines, shifts, employees, types = cursor.fetchone()
+    """
+    )
+    machines, shifts, employees, types, times = cursor.fetchone()
 
     print(f"✓ Materialized table: incidents_clean ({total} rows)")
-    print(f"  Match rates: machine={100*machines/total:.1f}%, shift={100*shifts/total:.1f}%, "
-          f"employee={100*employees/total:.1f}%, type={100*types/total:.1f}%")
+    print(
+        f"  Match rates: machine={100*machines/total:.1f}%, shift={100*shifts/total:.1f}%, "
+        f"employee={100*employees/total:.1f}%, type={100*types/total:.1f}%, time={100*times/total:.1f}%"
+    )
 
 
 def main():

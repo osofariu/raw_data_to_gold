@@ -281,3 +281,94 @@ def normalize_incident_type(raw: str | None) -> str | None:
                 return canonical
 
     return None
+
+
+# Month name to number mapping
+_MONTH_MAP = {
+    "jan": "01", "feb": "02", "mar": "03", "apr": "04",
+    "may": "05", "jun": "06", "jul": "07", "aug": "08",
+    "sep": "09", "oct": "10", "nov": "11", "dec": "12",
+}
+
+
+def parse_incident_time(raw: str | None) -> str | None:
+    """
+    Parse a raw incident time string to ISO format (YYYY-MM-DD HH:MM:SS).
+
+    Handles multiple input formats:
+    - ISO: 2024-07-05, 2024-07-30 16:17, 2024-08-02 17
+    - DD-Mon-YYYY: 30-Aug-2025 05:19:00, 17-Jun-2024 05:44
+    - MM/DD/YYYY: 05/23/2024, 06/23/2024 01:56:29
+
+    Args:
+        raw: The raw incident_time_raw string
+
+    Returns:
+        ISO formatted datetime (YYYY-MM-DD HH:MM:SS) or None if unparseable
+
+    Examples:
+        >>> parse_incident_time('2024-07-05')
+        '2024-07-05 00:00:00'
+        >>> parse_incident_time('30-Aug-2025 05:19:00')
+        '2025-08-30 05:19:00'
+        >>> parse_incident_time('05/23/2024')
+        '2024-05-23 00:00:00'
+    """
+    if raw is None:
+        return None
+
+    # Clean whitespace
+    cleaned = raw.strip()
+    if cleaned == "":
+        return None
+
+    # Try to parse different formats
+    date_part = None
+    time_part = "00:00:00"
+
+    # Split into date and time components
+    parts = cleaned.split()
+    date_str = parts[0]
+    time_str = parts[1] if len(parts) > 1 else None
+
+    # Format 1: ISO format (YYYY-MM-DD)
+    iso_match = re.match(r"^(\d{4})-(\d{2})-(\d{2})$", date_str)
+    if iso_match:
+        date_part = date_str
+
+    # Format 2: DD-Mon-YYYY (30-Aug-2025)
+    if date_part is None:
+        dmy_match = re.match(r"^(\d{1,2})-([A-Za-z]{3})-(\d{4})$", date_str)
+        if dmy_match:
+            day, mon, year = dmy_match.groups()
+            mon_num = _MONTH_MAP.get(mon.lower())
+            if mon_num:
+                date_part = f"{year}-{mon_num}-{int(day):02d}"
+
+    # Format 3: MM/DD/YYYY (05/23/2024)
+    if date_part is None:
+        mdy_match = re.match(r"^(\d{1,2})/(\d{1,2})/(\d{4})$", date_str)
+        if mdy_match:
+            mon, day, year = mdy_match.groups()
+            date_part = f"{year}-{int(mon):02d}-{int(day):02d}"
+
+    # If we couldn't parse the date, give up
+    if date_part is None:
+        return None
+
+    # Parse time component if present
+    if time_str:
+        # Full time: HH:MM:SS
+        if re.match(r"^\d{1,2}:\d{2}:\d{2}$", time_str):
+            h, m, s = time_str.split(":")
+            time_part = f"{int(h):02d}:{int(m):02d}:{int(s):02d}"
+        # Partial time: HH:MM
+        elif re.match(r"^\d{1,2}:\d{2}$", time_str):
+            h, m = time_str.split(":")
+            time_part = f"{int(h):02d}:{int(m):02d}:00"
+        # Just hour: HH
+        elif re.match(r"^\d{1,2}$", time_str):
+            h = int(time_str)
+            time_part = f"{h:02d}:00:00"
+
+    return f"{date_part} {time_part}"
