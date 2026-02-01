@@ -75,15 +75,13 @@ uv run pytest tests/test_normalize.py::TestNormalizeShiftCode -v
 
 ---
 
-## Step 4: Create the Views and Tables
+## Step 4: Build the Clean Table
 
 ```bash
-uv run python pipeline/run_scenario2.py
+uv run python pipeline/build_incidents_clean.py
 ```
 
-This creates:
-- `v_incidents_with_shift` — joins incidents to shifts via normalized shift_code
-- `incidents_with_shift` — materialized table for querying
+This creates `incidents_clean` with the normalized `shift_code` column.
 
 ---
 
@@ -95,7 +93,7 @@ This creates:
 SELECT 
     s.shift_name,
     COUNT(*) as incident_count
-FROM incidents_with_shift i
+FROM incidents_clean i
 JOIN shifts_raw s ON i.shift_code = s.shift_code
 GROUP BY s.shift_name
 ORDER BY incident_count DESC;
@@ -113,7 +111,7 @@ incident_counts AS (
     SELECT 
         s.shift_name,
         COUNT(*) as total_incidents
-    FROM incidents_with_shift i
+    FROM incidents_clean i
     JOIN shifts_raw s ON i.shift_code = s.shift_code
     GROUP BY s.shift_name
 )
@@ -133,7 +131,7 @@ ORDER BY incidents_per_shift DESC;
 
 ```sql
 SELECT shift_code_ref_raw, COUNT(*) as cnt
-FROM incidents_with_shift
+FROM incidents_clean
 WHERE shift_code IS NULL
 GROUP BY shift_code_ref_raw
 ORDER BY cnt DESC;

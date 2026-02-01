@@ -78,15 +78,13 @@ uv run pytest tests/test_normalize.py::TestNormalizeIncidentType -v
 
 ---
 
-## Step 4: Create the Views and Tables
+## Step 4: Build the Clean Table
 
 ```bash
-uv run python pipeline/run_scenario4.py
+uv run python pipeline/build_incidents_clean.py
 ```
 
-This creates:
-- `v_incidents_full` — normalizes both incident_type and machine_ref
-- `incidents_full` — materialized table for querying
+This creates `incidents_clean` with all normalized columns including `incident_type` and `machine_code`.
 
 ---
 
@@ -98,7 +96,7 @@ This creates:
 SELECT 
     mt.type_name,
     COUNT(*) as failure_count
-FROM incidents_full i
+FROM incidents_clean i
 JOIN machines m ON i.machine_code = m.machine_code
 JOIN machine_types mt ON m.machine_type_id = mt.machine_type_id
 WHERE i.incident_type = 'machine_failure'
@@ -121,7 +119,7 @@ failure_counts AS (
     SELECT 
         mt.type_name,
         COUNT(*) as failures
-    FROM incidents_full i
+    FROM incidents_clean i
     JOIN machines m ON i.machine_code = m.machine_code
     JOIN machine_types mt ON m.machine_type_id = mt.machine_type_id
     WHERE i.incident_type = 'machine_failure'
@@ -146,7 +144,7 @@ SELECT
     COUNT(*) as total,
     SUM(CASE WHEN incident_type IS NOT NULL THEN 1 ELSE 0 END) as matched,
     ROUND(100.0 * SUM(CASE WHEN incident_type IS NOT NULL THEN 1 ELSE 0 END) / COUNT(*), 1) as match_rate
-FROM incidents_full;
+FROM incidents_clean;
 ```
 
 ---

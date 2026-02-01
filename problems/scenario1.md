@@ -68,23 +68,19 @@ pytest tests/test_normalize.py -v
 
 ---
 
-## Step 4: Create the Views and Tables
+## Step 4: Build the Clean Table
 
 Run the pipeline script:
 
 ```bash
-uv run python pipeline/run_scenario1.py
+uv run python pipeline/build_incidents_clean.py
 ```
 
-This creates **layered views** (the transformation logic):
-1. `v_incidents_normalized` — normalizes `machine_ref_raw` → `machine_code`
-2. `v_incidents_resolved` — joins to get `machine_id`
+This creates:
+- `v_incidents_clean` — view with all normalization logic
+- `incidents_clean` — materialized table for querying
 
-And **materializes them to tables** (for querying):
-1. `incidents_normalized`
-2. `incidents_resolved`
-
-> **Why both?** Views define the transformation with clear lineage (easy to debug). Tables persist the results so you can query from any SQL tool (sqlite3 CLI, DBeaver, etc).
+> **Why both?** The view defines the transformation logic (easy to debug when UDFs are registered). The table persists the results so you can query from any SQL tool (sqlite3 CLI, DBeaver, etc).
 
 ---
 
@@ -99,7 +95,7 @@ SELECT
     COUNT(*) as total,
     SUM(CASE WHEN machine_code IS NOT NULL THEN 1 ELSE 0 END) as matched,
     ROUND(100.0 * SUM(CASE WHEN machine_code IS NOT NULL THEN 1 ELSE 0 END) / COUNT(*), 1) as match_rate
-FROM incidents_normalized;
+FROM incidents_clean;
 ```
 
 **Expected:** Match rate ≥95%
@@ -108,7 +104,7 @@ FROM incidents_normalized;
 
 ```sql
 SELECT machine_code, COUNT(*) as incident_count
-FROM incidents_normalized
+FROM incidents_clean
 WHERE machine_code IS NOT NULL
 GROUP BY machine_code
 ORDER BY incident_count DESC
@@ -121,7 +117,7 @@ LIMIT 3;
 
 ```sql
 SELECT machine_ref_raw, COUNT(*) as cnt
-FROM incidents_normalized
+FROM incidents_clean
 WHERE machine_code IS NULL
 GROUP BY machine_ref_raw
 ORDER BY cnt DESC;

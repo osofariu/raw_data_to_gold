@@ -84,15 +84,13 @@ uv run pytest tests/test_normalize.py::TestNormalizeEmployeeRef -v
 
 ---
 
-## Step 4: Create the Views and Tables
+## Step 4: Build the Clean Table
 
 ```bash
-uv run python pipeline/run_scenario3.py
+uv run python pipeline/build_incidents_clean.py
 ```
 
-This creates:
-- `v_incidents_with_employee` — normalizes employee_ref_raw to badge_id
-- `incidents_with_employee` — materialized table for querying
+This creates `incidents_clean` with the normalized `badge_id` column.
 
 ---
 
@@ -105,7 +103,7 @@ SELECT
     COUNT(*) as total,
     SUM(CASE WHEN badge_id IS NOT NULL THEN 1 ELSE 0 END) as matched,
     ROUND(100.0 * SUM(CASE WHEN badge_id IS NOT NULL THEN 1 ELSE 0 END) / COUNT(*), 1) as match_rate
-FROM incidents_with_employee;
+FROM incidents_clean;
 ```
 
 ### Top 5 Employees by Incident Count
@@ -115,7 +113,7 @@ SELECT
     i.badge_id,
     e.first_name || ' ' || e.last_name as full_name,
     COUNT(*) as incident_count
-FROM incidents_with_employee i
+FROM incidents_clean i
 JOIN employees e ON i.badge_id = e.badge_id
 WHERE i.badge_id IS NOT NULL
 GROUP BY i.badge_id
@@ -127,7 +125,7 @@ LIMIT 5;
 
 ```sql
 SELECT employee_ref_raw, COUNT(*) as cnt
-FROM incidents_with_employee
+FROM incidents_clean
 WHERE badge_id IS NULL
 GROUP BY employee_ref_raw
 ORDER BY cnt DESC;
