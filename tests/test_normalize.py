@@ -3,7 +3,12 @@ Tests for normalization functions.
 """
 
 import pytest
-from pipeline.normalize import normalize_machine_ref, normalize_shift_code
+from pipeline.normalize import (
+    normalize_machine_ref,
+    normalize_shift_code,
+    create_employee_normalizer,
+    build_employee_lookups,
+)
 
 
 class TestNormalizeMachineRef:
@@ -131,3 +136,95 @@ class TestNormalizeShiftCode:
     def test_mixed_case(self):
         assert normalize_shift_code("S-20240115-d") == "S-20240115-D"
         assert normalize_shift_code("s-20240115-D") == "S-20240115-D"
+
+
+class TestNormalizeEmployeeRef:
+    """Tests for employee reference normalization."""
+
+    # Sample employee data for testing
+    @pytest.fixture
+    def normalizer(self):
+        """Create a normalizer with sample employee data."""
+        employees = [
+            (1, "B0001", "Taylor", "Nguyen"),
+            (10, "B0010", "Casey", "Patel"),
+            (17, "B0017", "Hayden", "Johnson"),
+            (42, "B0042", "Casey", "White"),
+            (54, "B0054", "Jordan", "Brown"),
+        ]
+        badge_ids, id_to_badge, name_to_badge = build_employee_lookups(employees)
+        return create_employee_normalizer(badge_ids, id_to_badge, name_to_badge)
+
+    # Strategy 1: Badge ID patterns
+    def test_badge_canonical(self, normalizer):
+        assert normalizer("B0017") == "B0017"
+        assert normalizer("B0042") == "B0042"
+
+    def test_badge_lowercase(self, normalizer):
+        assert normalizer("b0017") == "B0017"
+        assert normalizer("b0054") == "B0054"
+
+    def test_badge_with_spaces(self, normalizer):
+        assert normalizer(" B0017 ") == "B0017"
+        assert normalizer("  B0042  ") == "B0042"
+
+    def test_badge_with_prefix(self, normalizer):
+        assert normalizer("Badge:B0017") == "B0017"
+        assert normalizer("Badge:B0042") == "B0042"
+
+    # Strategy 2: EMP-ID patterns
+    def test_emp_format_with_hyphen(self, normalizer):
+        assert normalizer("EMP-17") == "B0017"
+        assert normalizer("EMP-1") == "B0001"
+
+    def test_emp_format_no_hyphen(self, normalizer):
+        assert normalizer("EMP17") == "B0017"
+        assert normalizer("EMP42") == "B0042"
+
+    def test_emp_format_lowercase(self, normalizer):
+        assert normalizer("emp-17") == "B0017"
+        assert normalizer("emp42") == "B0042"
+
+    # Strategy 3: Bare number (employee_id)
+    def test_bare_number(self, normalizer):
+        assert normalizer("17") == "B0017"
+        assert normalizer("1") == "B0001"
+        assert normalizer("42") == "B0042"
+
+    # Strategy 4: Full name matching
+    def test_full_name(self, normalizer):
+        assert normalizer("Casey Patel") == "B0010"
+        assert normalizer("Hayden Johnson") == "B0017"
+
+    def test_full_name_uppercase(self, normalizer):
+        assert normalizer("CASEY PATEL") == "B0010"
+        assert normalizer("HAYDEN JOHNSON") == "B0017"
+
+    def test_full_name_lowercase(self, normalizer):
+        assert normalizer("casey patel") == "B0010"
+        assert normalizer("hayden johnson") == "B0017"
+
+    # Empty/placeholder values
+    def test_empty_values(self, normalizer):
+        assert normalizer(None) is None
+        assert normalizer("") is None
+        assert normalizer("   ") is None
+
+    def test_placeholder_values(self, normalizer):
+        assert normalizer("n/a") is None
+        assert normalizer("N/A") is None
+        assert normalizer("UNKNOWN") is None
+        assert normalizer("unknown") is None
+
+    # Invalid/non-existent references
+    def test_invalid_badge(self, normalizer):
+        assert normalizer("B9999") is None  # Doesn't exist
+        assert normalizer("B0099") is None  # Doesn't exist
+
+    def test_invalid_emp_id(self, normalizer):
+        assert normalizer("EMP-999") is None  # Doesn't exist
+        assert normalizer("999") is None  # Doesn't exist
+
+    def test_invalid_name(self, normalizer):
+        assert normalizer("John Doe") is None  # Doesn't exist
+        assert normalizer("NOBODY HERE") is None
