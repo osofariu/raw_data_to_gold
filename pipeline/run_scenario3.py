@@ -22,7 +22,7 @@ from pathlib import Path
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from pipeline.normalize import create_employee_normalizer, build_employee_lookups
+from pipeline.normalize import create_employee_normalizer
 
 DB_PATH = Path(__file__).parent.parent / "data" / "factory_training.db"
 
@@ -39,7 +39,8 @@ def create_views(conn: sqlite3.Connection) -> None:
     """Create views for normalizing employee references."""
 
     conn.execute("DROP VIEW IF EXISTS v_incidents_with_employee")
-    conn.execute("""
+    conn.execute(
+        """
         CREATE VIEW v_incidents_with_employee AS
         SELECT 
             incident_id,
@@ -55,7 +56,8 @@ def create_views(conn: sqlite3.Connection) -> None:
             description,
             created_at_iso
         FROM incident_reports_raw
-    """)
+    """
+    )
 
     print("✓ Created view: v_incidents_with_employee")
 
@@ -64,10 +66,12 @@ def materialize_tables(conn: sqlite3.Connection) -> None:
     """Materialize views to tables for querying."""
 
     conn.execute("DROP TABLE IF EXISTS incidents_with_employee")
-    conn.execute("""
+    conn.execute(
+        """
         CREATE TABLE incidents_with_employee AS
         SELECT * FROM v_incidents_with_employee
-    """)
+    """
+    )
 
     conn.commit()
     print("✓ Materialized table: incidents_with_employee")
@@ -78,15 +82,10 @@ def main():
 
     conn = sqlite3.connect(DB_PATH)
 
-    # Load employees and build lookups
+    # Load employees and create normalizer
     employees = load_employees(conn)
-    badge_ids, id_to_badge, name_to_badge = build_employee_lookups(employees)
+    normalize_employee_ref = create_employee_normalizer(employees)
     print(f"✓ Loaded {len(employees)} employees for lookup")
-
-    # Create the normalizer with employee data baked in
-    normalize_employee_ref = create_employee_normalizer(
-        badge_ids, id_to_badge, name_to_badge
-    )
 
     # Register the Python function so it can be used in SQL
     conn.create_function("normalize_employee_ref", 1, normalize_employee_ref)
@@ -97,7 +96,9 @@ def main():
     finally:
         conn.close()
 
-    print("\nNext: Run the SQL queries in problems/scenario3.md to explore the results.")
+    print(
+        "\nNext: Run the SQL queries in problems/scenario3.md to explore the results."
+    )
 
 
 if __name__ == "__main__":

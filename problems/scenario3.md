@@ -70,9 +70,9 @@ Extract from `EMP-42`, `EMP42` → look up badge_id from employee_id
 
 ### Implementation
 
-See `pipeline/normalize.py` for `create_employee_normalizer()`.
+See `pipeline/normalize.py` for `create_employee_normalizer(employees)`.
 
-Unlike machine/shift normalization, employee normalization needs access to the employees table for lookups. We create a closure that captures the employee data.
+Unlike machine/shift normalization, employee normalization needs access to the employees table for lookups. The factory function takes the employee list and returns a normalizer function with the lookup data captured via closure.
 
 ---
 

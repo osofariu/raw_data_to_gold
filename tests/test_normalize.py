@@ -7,7 +7,6 @@ from pipeline.normalize import (
     normalize_machine_ref,
     normalize_shift_code,
     create_employee_normalizer,
-    build_employee_lookups,
 )
 
 
@@ -152,8 +151,7 @@ class TestNormalizeEmployeeRef:
             (42, "B0042", "Casey", "White"),
             (54, "B0054", "Jordan", "Brown"),
         ]
-        badge_ids, id_to_badge, name_to_badge = build_employee_lookups(employees)
-        return create_employee_normalizer(badge_ids, id_to_badge, name_to_badge)
+        return create_employee_normalizer(employees)
 
     # Strategy 1: Badge ID patterns
     def test_badge_canonical(self, normalizer):

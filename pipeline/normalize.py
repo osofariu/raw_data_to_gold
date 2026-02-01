@@ -96,25 +96,30 @@ def normalize_shift_code(raw: str | None) -> str | None:
 
 
 def create_employee_normalizer(
-    badge_ids: set[str],
-    id_to_badge: dict[int, str],
-    name_to_badge: dict[str, str],
+    employees: list[tuple[int, str, str, str]],
 ):
     """
-    Factory function that creates an employee reference normalizer.
+    Create an employee reference normalizer with lookup data.
 
     Since employee normalization requires lookups (name matching, ID validation),
-    we create a closure that captures the lookup data.
+    we create a closure that captures the lookup data built from the employees list.
 
     Args:
-        badge_ids: Set of valid badge IDs (e.g., {'B0001', 'B0002', ...})
-        id_to_badge: Map from employee_id to badge_id (e.g., {1: 'B0001', ...})
-        name_to_badge: Map from uppercase full name to badge_id 
-                       (e.g., {'CASEY PATEL': 'B0010', ...})
+        employees: List of (employee_id, badge_id, first_name, last_name) tuples
 
     Returns:
         A normalize_employee_ref function suitable for SQLite UDF registration
     """
+    # Build lookup structures
+    badge_ids: set[str] = set()
+    id_to_badge: dict[int, str] = {}
+    name_to_badge: dict[str, str] = {}
+
+    for emp_id, badge_id, first_name, last_name in employees:
+        badge_ids.add(badge_id)
+        id_to_badge[emp_id] = badge_id
+        full_name = f"{first_name} {last_name}".upper()
+        name_to_badge[full_name] = badge_id
 
     def normalize_employee_ref(raw: str | None) -> str | None:
         """
@@ -167,28 +172,3 @@ def create_employee_normalizer(
         return None
 
     return normalize_employee_ref
-
-
-def build_employee_lookups(
-    employees: list[tuple[int, str, str, str]],
-) -> tuple[set[str], dict[int, str], dict[str, str]]:
-    """
-    Build lookup structures for employee normalization.
-
-    Args:
-        employees: List of (employee_id, badge_id, first_name, last_name) tuples
-
-    Returns:
-        Tuple of (badge_ids set, id_to_badge dict, name_to_badge dict)
-    """
-    badge_ids: set[str] = set()
-    id_to_badge: dict[int, str] = {}
-    name_to_badge: dict[str, str] = {}
-
-    for emp_id, badge_id, first_name, last_name in employees:
-        badge_ids.add(badge_id)
-        id_to_badge[emp_id] = badge_id
-        full_name = f"{first_name} {last_name}".upper()
-        name_to_badge[full_name] = badge_id
-
-    return badge_ids, id_to_badge, name_to_badge
