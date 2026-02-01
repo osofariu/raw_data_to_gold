@@ -58,15 +58,16 @@ from util.data_helpers import (
 # DATABASE QUERIES
 # =============================================================================
 
+
 def get_latest_shift_day(conn: sqlite3.Connection) -> datetime:
     """Find the latest day from shift_code pattern S-YYYYMMDD-?."""
     cur = conn.cursor()
     cur.execute("SELECT MAX(shift_code) FROM shifts_raw")
     row = cur.fetchone()
-    
+
     if not row or not row[0]:
         raise RuntimeError("No shifts found in shifts_raw. Did you seed the DB first?")
-    
+
     max_code = row[0].strip().upper()
     parts = max_code.split("-")
     # expected: ["S", "YYYYMMDD", "D"]
@@ -102,12 +103,15 @@ def fetch_machines(conn: sqlite3.Connection) -> List[Tuple[str, str]]:
 # MAIN APPEND LOGIC
 # =============================================================================
 
+
 def main() -> None:
     ap = argparse.ArgumentParser(description="Append new data to factory database")
     ap.add_argument("db_path", help="Path to existing SQLite database")
     ap.add_argument("--days", type=int, default=30, help="Days of new data to append")
     ap.add_argument("--seed", type=int, default=100, help="Random seed")
-    ap.add_argument("--avg_team_size", type=int, default=18, help="Average team size per shift")
+    ap.add_argument(
+        "--avg_team_size", type=int, default=18, help="Average team size per shift"
+    )
     args = ap.parse_args()
 
     rng = random.Random(args.seed)
@@ -131,10 +135,15 @@ def main() -> None:
     machine_codes = [mc for (mc, _) in machines]
     bad_machine_codes = set(c for c in BAD_MACHINE_CODES if c in machine_codes)
     if len(bad_machine_codes) < 2:
-        bad_machine_codes.update(rng.sample(machine_codes, k=min(3, len(machine_codes))))
+        bad_machine_codes.update(
+            rng.sample(machine_codes, k=min(3, len(machine_codes)))
+        )
 
     bad_employee_ids = set(
-        eid for (eid, _, _) in rng.sample(employees, k=min(NUM_BAD_EMPLOYEES, len(employees)))
+        eid
+        for (eid, _, _) in rng.sample(
+            employees, k=min(NUM_BAD_EMPLOYEES, len(employees))
+        )
     )
 
     zone_codes = ["Z-01", "Z-02", "Z-03", "Z-04", "Z-05", "Z-06"]
@@ -217,7 +226,9 @@ def main() -> None:
             sh_start, sh_end = shift_def.get(suffix, (6, 14))
             sdt2 = datetime(day.year, day.month, day.day, sh_start, 0, 0)
             if suffix == "N":
-                edt2 = datetime(day.year, day.month, day.day, 23, 59, 59) + timedelta(hours=6)
+                edt2 = datetime(day.year, day.month, day.day, 23, 59, 59) + timedelta(
+                    hours=6
+                )
             else:
                 edt2 = datetime(day.year, day.month, day.day, sh_end, 0, 0)
 
@@ -250,8 +261,12 @@ def main() -> None:
                 canonical_type = choose_incident_type_for_machine(mt, rng)
                 severity_key = choose_severity(canonical_type, rng)
 
-                it_raw = maybe_typo(pick_variant(INCIDENT_TYPE_VARIANTS, canonical_type, rng), rng)
-                sev_raw = maybe_typo(pick_variant(SEVERITY_VARIANTS, severity_key, rng), rng)
+                it_raw = maybe_typo(
+                    pick_variant(INCIDENT_TYPE_VARIANTS, canonical_type, rng), rng
+                )
+                sev_raw = maybe_typo(
+                    pick_variant(SEVERITY_VARIANTS, severity_key, rng), rng
+                )
 
                 zone_code = rng.choice(zone_codes)
 

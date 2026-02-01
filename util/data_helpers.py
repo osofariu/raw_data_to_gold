@@ -19,15 +19,15 @@ from typing import Dict, List, Optional
 # =============================================================================
 
 DATE_FORMATS = [
-    "%Y-%m-%d %H:%M:%S",     # 2024-03-15 14:32:45
-    "%Y-%m-%d %H:%M",        # 2024-03-15 14:32
-    "%Y-%m-%d %H",           # 2024-03-15 14 (missing minutes)
-    "%Y-%m-%d",              # 2024-03-15 (date only)
-    "%m/%d/%Y %H:%M:%S",     # 03/15/2024 14:32:45 (US format)
-    "%m/%d/%Y %H:%M",        # 03/15/2024 14:32
-    "%m/%d/%Y",              # 03/15/2024
-    "%d-%b-%Y %H:%M:%S",     # 15-Mar-2024 14:32:45
-    "%d-%b-%Y %H:%M",        # 15-Mar-2024 14:32
+    "%Y-%m-%d %H:%M:%S",  # 2024-03-15 14:32:45
+    "%Y-%m-%d %H:%M",  # 2024-03-15 14:32
+    "%Y-%m-%d %H",  # 2024-03-15 14 (missing minutes)
+    "%Y-%m-%d",  # 2024-03-15 (date only)
+    "%m/%d/%Y %H:%M:%S",  # 03/15/2024 14:32:45 (US format)
+    "%m/%d/%Y %H:%M",  # 03/15/2024 14:32
+    "%m/%d/%Y",  # 03/15/2024
+    "%d-%b-%Y %H:%M:%S",  # 15-Mar-2024 14:32:45
+    "%d-%b-%Y %H:%M",  # 15-Mar-2024 14:32
 ]
 
 
@@ -192,6 +192,7 @@ BASE_INCIDENT_LAMBDA = 0.08
 # HELPER FUNCTIONS
 # =============================================================================
 
+
 def iso_now(dt: Optional[datetime] = None) -> str:
     """Return ISO timestamp string (for created_at fields)."""
     return (dt or datetime.utcnow()).replace(microsecond=0).isoformat()
@@ -200,7 +201,7 @@ def iso_now(dt: Optional[datetime] = None) -> str:
 def dirty_dt(dt: datetime, rng: random.Random) -> str:
     """
     Render datetime into a dirty string with random format and noise.
-    
+
     Introduces:
     - Random date format selection
     - 8% chance of leading/trailing whitespace
@@ -231,7 +232,7 @@ def dirty_dt(dt: datetime, rng: random.Random) -> str:
 def dirty_machine_ref(machine_code: str, rng: random.Random) -> str:
     """
     Generate inconsistent machine reference from canonical code (e.g., 'M-017').
-    
+
     Variants include: M-017, m-017, M017, 017, Machine 017, M17, MX-017, etc.
     """
     digits = "".join(ch for ch in machine_code if ch.isdigit())
@@ -253,7 +254,7 @@ def dirty_employee_ref(
 ) -> str:
     """
     Generate inconsistent employee reference.
-    
+
     Variants include: badge_id, EMP-id, full name, uppercase name, etc.
     6% chance of bogus/non-existent reference.
     """
@@ -267,24 +268,26 @@ def dirty_employee_ref(
         f" {badge_id} ",
         f"Badge:{badge_id}",
     ]
-    
+
     # Occasionally generate non-existent or malformed reference
     if rng.random() < 0.06:
-        return rng.choice([
-            f"B{rng.randint(9000, 9999)}",
-            f"EMP-{rng.randint(9000, 9999)}",
-            "UNKNOWN",
-            "",
-            "n/a",
-        ])
-    
+        return rng.choice(
+            [
+                f"B{rng.randint(9000, 9999)}",
+                f"EMP-{rng.randint(9000, 9999)}",
+                "UNKNOWN",
+                "",
+                "n/a",
+            ]
+        )
+
     return rng.choice(variants)
 
 
 def dirty_zone_ref(zone_code: str, rng: random.Random) -> str:
     """
     Generate inconsistent zone reference.
-    
+
     3% chance of bogus zone reference.
     """
     variants = [
@@ -294,15 +297,17 @@ def dirty_zone_ref(zone_code: str, rng: random.Random) -> str:
         f"Zone {zone_code}",
         f" {zone_code} ",
     ]
-    
+
     # Occasional wrong zone
     if rng.random() < 0.03:
         return rng.choice(["Z-99", "ZONE-UNKNOWN", ""])
-    
+
     return rng.choice(variants)
 
 
-def pick_variant(mapping: Dict[str, List[str]], canonical_key: str, rng: random.Random) -> str:
+def pick_variant(
+    mapping: Dict[str, List[str]], canonical_key: str, rng: random.Random
+) -> str:
     """Pick a random variant for a canonical value."""
     return rng.choice(mapping[canonical_key])
 
@@ -314,7 +319,7 @@ def maybe_typo(s: str, rng: random.Random) -> str:
     """
     if not s or rng.random() > 0.06 or len(s) < 4:
         return s
-    
+
     i = rng.randint(0, len(s) - 2)
     lst = list(s)
     lst[i], lst[i + 1] = lst[i + 1], lst[i]
@@ -329,7 +334,7 @@ def make_shift_code(day: datetime, suffix: str) -> str:
 def choose_incident_type_for_machine(machine_type: str, rng: random.Random) -> str:
     """
     Choose canonical incident type weighted by machine type.
-    
+
     Different machine types have different incident profiles:
     - Press: more machine failures and minor injuries
     - Conveyor: more machine failures and near misses
@@ -363,14 +368,14 @@ def choose_incident_type_for_machine(machine_type: str, rng: random.Random) -> s
 
     total = sum(weights)
     weights = [w / total for w in weights]
-    
+
     return rng.choices(keys, weights=weights, k=1)[0]
 
 
 def choose_severity(canonical_type: str, rng: random.Random) -> str:
     """
     Choose canonical severity based on incident type.
-    
+
     - injury_major: 70% high, 30% critical
     - machine_failure: 55% medium, 45% high
     - safety_violation, power_event: 25% low, 55% medium, 20% high
@@ -381,7 +386,9 @@ def choose_severity(canonical_type: str, rng: random.Random) -> str:
     elif canonical_type in ("machine_failure",):
         return rng.choices(["medium", "high"], weights=[0.55, 0.45], k=1)[0]
     elif canonical_type in ("safety_violation", "power_event"):
-        return rng.choices(["low", "medium", "high"], weights=[0.25, 0.55, 0.20], k=1)[0]
+        return rng.choices(["low", "medium", "high"], weights=[0.25, 0.55, 0.20], k=1)[
+            0
+        ]
     else:
         return rng.choices(["low", "medium"], weights=[0.7, 0.3], k=1)[0]
 
@@ -421,17 +428,49 @@ ZONES_SEED = [
 ]
 
 FIRST_NAMES = [
-    "Avery", "Jordan", "Casey", "Taylor", "Morgan",
-    "Riley", "Quinn", "Cameron", "Drew", "Parker",
-    "Alex", "Jamie", "Sam", "Robin", "Hayden",
-    "Kendall", "Blake", "Skyler", "Reese", "Rowan",
+    "Avery",
+    "Jordan",
+    "Casey",
+    "Taylor",
+    "Morgan",
+    "Riley",
+    "Quinn",
+    "Cameron",
+    "Drew",
+    "Parker",
+    "Alex",
+    "Jamie",
+    "Sam",
+    "Robin",
+    "Hayden",
+    "Kendall",
+    "Blake",
+    "Skyler",
+    "Reese",
+    "Rowan",
 ]
 
 LAST_NAMES = [
-    "Nguyen", "Patel", "Garcia", "Smith", "Johnson",
-    "Brown", "Davis", "Miller", "Wilson", "Moore",
-    "Taylor", "Anderson", "Thomas", "Jackson", "White",
-    "Harris", "Martin", "Thompson", "Lee", "Clark",
+    "Nguyen",
+    "Patel",
+    "Garcia",
+    "Smith",
+    "Johnson",
+    "Brown",
+    "Davis",
+    "Miller",
+    "Wilson",
+    "Moore",
+    "Taylor",
+    "Anderson",
+    "Thomas",
+    "Jackson",
+    "White",
+    "Harris",
+    "Martin",
+    "Thompson",
+    "Lee",
+    "Clark",
 ]
 
 VENDORS = [

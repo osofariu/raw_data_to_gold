@@ -26,7 +26,7 @@ This workshop has three parts, each following a **"together, then independent"**
 
 | Part  | Focus                         | Together          | Independent        |
 | ----- | ----------------------------- | ----------------- | ------------------ |
-| **1** | SQL Analysis & Data Cleaning  | 2 scenarios       | 2 scenarios        |
+| **1** | SQL Analysis & Data Cleaning  | 3 scenarios       | 2 scenarios        |
 | **2** | Search & Transformation Layer | 1 scenario        | 1-2 scenarios      |
 | **3** | Agentic Interface (Advanced)  | Discussion + demo | Optional extension |
 
@@ -89,6 +89,7 @@ The database contains ~10 tables:
 ## 1A: Together (Instructor-Led)
 
 We'll work through these two scenarios as a group, demonstrating the full workflow:
+
 1. Examine the schema and identify what we need
 2. Explore the messy fields
 3. Discuss cleaning strategies (views, tables, migration)
@@ -102,6 +103,7 @@ We'll work through these two scenarios as a group, demonstrating the full workfl
 **The Mess:** `machine_ref_raw` in `incident_reports_raw`
 
 A single machine (e.g., M-017) appears in the data as:
+
 - `M-017`, `m-017`, `M017`, `m017`
 - `Machine 17`, `Machine 017`
 - `017`, `17`
@@ -109,12 +111,14 @@ A single machine (e.g., M-017) appears in the data as:
 - Leading/trailing whitespace
 
 **Your Task:**
+
 1. Explore the distinct values in `machine_ref_raw`
 2. Create a cleaning strategy (view or table) that maps raw values → canonical `machine_code`
 3. Build a query that counts incidents per machine
 4. Identify the top 3 problem machines
 
 **Skills Practiced:**
+
 - Pattern matching with `LIKE`, `GLOB`, or `CASE`
 - String functions: `TRIM()`, `UPPER()`, `REPLACE()`
 - Creating views for a clean query layer
@@ -134,12 +138,14 @@ The good news: `shifts_raw.shift_name` is already clean (Day, Swing, Night).
 The challenge: You need to calculate a **rate** (incidents per shift), not just a count.
 
 **Your Task:**
+
 1. Count how many shifts of each type exist
 2. Count how many incidents occurred during each shift type
 3. Calculate the incident rate: `incidents / shift_count`
 4. Visualize with a simple bar chart (optional, using matplotlib)
 
 **Skills Practiced:**
+
 - Joining `incident_reports_raw` → `shifts_raw` via `shift_code_ref_raw`
 - Handling missing/bad shift references
 - Rate calculations vs raw counts
@@ -160,6 +166,7 @@ Now apply what you learned to these two scenarios. The cleaning challenges are *
 **The Mess:** `employee_ref_raw` in `incident_reports_raw`
 
 Employee references are even messier than machines. The same person appears as:
+
 - Badge ID: `B0042`, `b0042`, `B 0042`
 - Employee ID format: `EMP-42`, `EMP42`
 - Full name: `Casey Patel`, `CASEY PATEL`, `casey patel`
@@ -167,12 +174,14 @@ Employee references are even messier than machines. The same person appears as:
 - Placeholder values: `UNKNOWN`, `n/a`, empty string
 
 **Your Task:**
+
 1. Explore the distinct patterns in `employee_ref_raw`
 2. Create a cleaning strategy that maps raw values → `employee_id` or `badge_id`
 3. Handle unmatchable references gracefully (count them separately)
 4. Identify the top 5 employees by incident involvement
 
 **Hints:**
+
 - The `employees` table has `badge_id`, `first_name`, `last_name`, and `employee_id`
 - You may need multiple matching strategies (badge pattern, name lookup, ID extraction)
 - Some references are genuinely unmatchable — that's okay, just track how many
@@ -186,23 +195,27 @@ Employee references are even messier than machines. The same person appears as:
 **The Mess:** Multiple fields need cleaning
 
 This scenario chains together multiple cleaning steps:
+
 1. Clean `incident_type_raw` to identify machine failures
 2. Clean `machine_ref_raw` to match to actual machines
 3. Join through `machines` → `machine_types`
 4. Calculate failure rate per machine type
 
 **Incident Type Variants:**
+
 - `machine_failure`, `Machine Failure`, `MECH_FAIL`
-- `machine_fail`, `Mach failure`, `machine failure ` (trailing space)
+- `machine_fail`, `Mach failure`, `machine failure` (trailing space)
 - Typos: `Mahcine Failure`, `machin_failure`
 
 **Your Task:**
+
 1. Create a view/logic to normalize `incident_type_raw` → canonical type
 2. Filter to only machine failure incidents
 3. Join to get machine type for each incident
 4. Calculate: failures per machine type (or per machine of that type)
 
 **Hints:**
+
 - Use `incident_types` table for canonical names
 - Consider: is "failure rate" = total failures, or failures per machine of that type?
 - The `machines` table links `machine_code` → `machine_type_id`
@@ -223,19 +236,95 @@ When you've completed Part 1, you should be able to:
 
 ---
 
+## 1C: Together — Bridge to Part 2
+
+This final instructor-led scenario demonstrates where SQL starts to struggle — and motivates the tools we'll explore in Part 2.
+
+---
+
+### Scenario 5: When Do Problems Cluster?
+
+**The Business Question:**
+
+Management has noticed that incidents rarely happen in isolation. When one thing goes wrong, other problems often follow within a few hours. They want to understand:
+
+1. How often do we see **"incident clusters"** (3+ incidents within a 4-hour window)?
+2. What **times of day** are clusters most common?
+3. Are clusters associated with specific **shifts, zones, or machine types**?
+
+**The Mess:** Time-based pattern detection in SQL
+
+This requires your cleaned data from Scenarios 1-4, plus some awkward SQL:
+
+| Task                                             | SQL Approach              | Difficulty |
+| ------------------------------------------------ | ------------------------- | ---------- |
+| Find incidents with 2+ others within ±2 hours    | Self-join with time range | Moderate   |
+| Group overlapping windows into distinct clusters | Gap-and-island problem    | Hard       |
+| Bucket by hour-of-day and aggregate              | `strftime` + GROUP BY     | Moderate   |
+| Break down by shift × zone × machine type        | Multiple nested GROUP BYs | Hard       |
+| Visualize the distribution                       | Export to Python          | Extra step |
+
+**Your Task:**
+
+1. Using your `incidents_clean` view/table, find incidents that have at least 2 other incidents within a 4-hour window (±2 hours)
+2. Try to identify distinct "cluster events" (groups of overlapping incidents)
+3. Analyze: what time of day do clusters happen? Which shifts? Which zones?
+
+**Sample SQL (just step 1):**
+
+```sql
+-- Find incidents that have 2+ other incidents within ±2 hours
+WITH incident_with_neighbors AS (
+  SELECT 
+    a.incident_id,
+    a.incident_time,
+    COUNT(b.incident_id) as nearby_count
+  FROM incidents_clean a
+  JOIN incidents_clean b 
+    ON b.incident_time BETWEEN 
+       datetime(a.incident_time, '-2 hours') 
+       AND datetime(a.incident_time, '+2 hours')
+    AND a.incident_id != b.incident_id
+  GROUP BY a.incident_id
+)
+SELECT * FROM incident_with_neighbors WHERE nearby_count >= 2;
+```
+
+**Skills Practiced:**
+
+- Self-joins with time-based conditions
+- Window functions and CTEs
+- The pain of time-series analysis in SQL
+
+**The Point:**
+
+This query works, but extending it to:
+
+- Group overlapping windows into single cluster events
+- Aggregate by multiple dimensions (hour × shift × zone)
+- Visualize trends over time
+
+...quickly becomes 50+ lines of complex SQL. This is exactly what search and analytics tools are designed for.
+
+**Expected Insight:** You should find that clusters are more common during shift transitions and on night shifts. But getting there in SQL is painful — which is why we're moving to Part 2.
+
+---
+
 # Part 2: Search & Transformation Layer
 
 ## The Problem with SQL
 
-SQL is great for answering specific questions, but:
-- Complex queries are slow to write and run
-- Full-text search on descriptions is limited
-- Aggregations must be recomputed each time
-- It's hard to explore the data interactively
+As Scenario 5 demonstrated, SQL struggles with:
+
+- Time-series pattern detection and windowing
+- Multi-dimensional aggregations
+- Full-text search on descriptions
+- Interactive exploration and visualization
 
 ## 2A: Together (Instructor-Led)
 
 We'll discuss and implement:
+
 1. Why you might want a searchable layer on top of your cleaned data
 2. Options: OpenSearch/Elasticsearch, ClickHouse, DuckDB, Postgres with indexing
 3. Designing a search-friendly document model
@@ -244,6 +333,7 @@ We'll discuss and implement:
 ### Demo Scenario: Searchable Incident Index
 
 Transform your cleaned incident data into a searchable format with:
+
 - Full-text search on descriptions
 - Faceted filtering by machine, employee, zone, severity
 - Date range queries
@@ -251,12 +341,14 @@ Transform your cleaned incident data into a searchable format with:
 
 ## 2B: Independent Work
 
-### Scenario 5: Build Your Own Search Layer
+### Scenario 6: Build Your Own Search Layer
 
 Using the approach demonstrated, build a searchable layer that:
+
 1. Indexes all cleaned incidents
 2. Supports at least 3 filter dimensions
 3. Handles incremental updates (test with `scripts/append_factory_data.py`)
+4. **Bonus:** Solve the clustering problem from Scenario 5 using your search layer
 
 ---
 
@@ -265,6 +357,7 @@ Using the approach demonstrated, build a searchable layer that:
 ## Discussion: Why Add an AI Layer?
 
 Once you have clean, searchable data, an AI agent can:
+
 - Answer natural language questions
 - Combine multiple queries to answer complex questions
 - Explain its reasoning and cite sources
@@ -280,6 +373,7 @@ Once you have clean, searchable data, an AI agent can:
 ## Optional Extension
 
 Build a simple agent that can answer questions like:
+
 - "What happened with machine M-017 last month?"
 - "Show me all safety incidents on night shift"
 - "Which zone should we prioritize for safety improvements?"
@@ -291,11 +385,13 @@ Build a simple agent that can answer questions like:
 The factory keeps operating! New shifts, incidents, and maintenance logs are added regularly.
 
 Your pipeline should handle incremental updates:
+
 - New data arrives (we'll add it to the database)
 - Your clean layer updates automatically (or with a simple command)
 - Your search layer stays in sync
 
 Test this by running:
+
 ```bash
 python scripts/append_factory_data.py --days 7
 ```

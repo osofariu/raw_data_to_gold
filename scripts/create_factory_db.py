@@ -67,6 +67,7 @@ SCHEMA_PATH = PROJECT_ROOT / "schema" / "schema.sql"
 # DATA CLASSES
 # =============================================================================
 
+
 @dataclass
 class Employee:
     employee_id: int
@@ -91,6 +92,7 @@ class Machine:
 # =============================================================================
 # REFERENCE DATA SEEDING
 # =============================================================================
+
 
 def seed_reference_tables(cur: sqlite3.Cursor) -> None:
     """Seed machine_types, incident_types, and zones tables."""
@@ -117,18 +119,19 @@ def seed_reference_tables(cur: sqlite3.Cursor) -> None:
 # EMPLOYEE GENERATION
 # =============================================================================
 
+
 def generate_employees(
     cur: sqlite3.Cursor, rng: random.Random, n: int = 60
 ) -> List[Employee]:
     """Generate n employees with realistic distributions."""
     roles = ["Operator", "Technician", "Quality", "Maintenance", "Supervisor"]
     role_weights = [60, 15, 10, 10, 5]
-    
+
     employees: List[Employee] = []
     used_names = set()
 
     base_hire = datetime(2018, 1, 1)
-    
+
     for i in range(1, n + 1):
         # Avoid exact name duplicates
         while True:
@@ -141,11 +144,11 @@ def generate_employees(
 
         badge = f"B{i:04d}"
         role = rng.choices(roles, weights=role_weights, k=1)[0]
-        hire_date = (base_hire + timedelta(days=rng.randint(0, 2200))).date().isoformat()
+        hire_date = (
+            (base_hire + timedelta(days=rng.randint(0, 2200))).date().isoformat()
+        )
         status = rng.choices(
-            ["active", "leave", "terminated"], 
-            weights=[92, 5, 3], 
-            k=1
+            ["active", "leave", "terminated"], weights=[92, 5, 3], k=1
         )[0]
 
         cur.execute(
@@ -155,13 +158,14 @@ def generate_employees(
         )
         emp_id = cur.lastrowid
         employees.append(Employee(emp_id, badge, fn, ln, role))
-    
+
     return employees
 
 
 # =============================================================================
 # MACHINE GENERATION
 # =============================================================================
+
 
 def generate_machines(
     cur: sqlite3.Cursor, rng: random.Random, n: int = 40
@@ -191,11 +195,11 @@ def generate_machines(
         tname = rng.choices(type_names, weights=weights, k=1)[0]
         tid = type_id_by_name[tname]
         vendor = rng.choice(VENDORS)
-        install_date = (install_base + timedelta(days=rng.randint(0, 2200))).date().isoformat()
+        install_date = (
+            (install_base + timedelta(days=rng.randint(0, 2200))).date().isoformat()
+        )
         status = rng.choices(
-            ["active", "maintenance", "retired"], 
-            weights=[90, 8, 2], 
-            k=1
+            ["active", "maintenance", "retired"], weights=[90, 8, 2], k=1
         )[0]
 
         cur.execute(
@@ -213,6 +217,7 @@ def generate_machines(
 # LAYOUT GENERATION
 # =============================================================================
 
+
 def seed_layout_raw(
     cur: sqlite3.Cursor, rng: random.Random, machines: List[Machine]
 ) -> None:
@@ -226,7 +231,9 @@ def seed_layout_raw(
         elif m.machine_type in ("Conveyor", "RobotArm"):
             zone = rng.choices(["Z-03", "Z-04"], weights=[0.6, 0.4], k=1)[0]
         else:
-            zone = rng.choices(["Z-01", "Z-05", "Z-03"], weights=[0.2, 0.5, 0.3], k=1)[0]
+            zone = rng.choices(["Z-01", "Z-05", "Z-03"], weights=[0.2, 0.5, 0.3], k=1)[
+                0
+            ]
 
         # Occasional mismatch/outdated zone (5%)
         if rng.random() < 0.05:
@@ -244,7 +251,11 @@ def seed_layout_raw(
             (
                 dirty_machine_ref(m.machine_code, rng),
                 dirty_zone_ref(zone, rng),
-                x, y, row_num, col_num, eff,
+                x,
+                y,
+                row_num,
+                col_num,
+                eff,
             ),
         )
 
@@ -256,9 +267,12 @@ def seed_layout_raw(
             "INSERT INTO layout_raw(machine_ref_raw, zone_ref_raw, x, y, row_num, col_num, effective_from_raw) "
             "VALUES (?, ?, ?, ?, ?, ?, ?)",
             (
-                bogus_machine, bogus_zone,
-                rng.uniform(0, 100), rng.uniform(0, 50),
-                rng.randint(1, 10), rng.randint(1, 12),
+                bogus_machine,
+                bogus_zone,
+                rng.uniform(0, 100),
+                rng.uniform(0, 50),
+                rng.randint(1, 10),
+                rng.randint(1, 12),
                 dirty_dt(datetime(2024, 6, 1), rng),
             ),
         )
@@ -267,6 +281,7 @@ def seed_layout_raw(
 # =============================================================================
 # SHIFTS AND ASSIGNMENTS
 # =============================================================================
+
 
 def seed_shifts_and_assignments(
     cur: sqlite3.Cursor,
@@ -278,7 +293,7 @@ def seed_shifts_and_assignments(
 ) -> Tuple[List[str], Dict[str, List[Employee]]]:
     """
     Generate shifts and assignments for date range.
-    
+
     Returns:
         - List of shift codes
         - Mapping of shift_code -> assigned employees
@@ -294,7 +309,7 @@ def seed_shifts_and_assignments(
     while day <= end_day:
         for shift_name, start_hour, end_hour, suffix in SHIFT_DEFS:
             scode = make_shift_code(day, suffix)
-            
+
             # Actual shift times
             sdt = datetime(day.year, day.month, day.day, start_hour, 0, 0)
             edt = datetime(day.year, day.month, day.day, end_hour, 0, 0)
@@ -306,7 +321,9 @@ def seed_shifts_and_assignments(
             end_raw = dirty_dt(edt, rng)
 
             sup = rng.choice(supervisors)
-            sup_ref = dirty_employee_ref(sup.employee_id, sup.badge_id, sup.full_name, rng)
+            sup_ref = dirty_employee_ref(
+                sup.employee_id, sup.badge_id, sup.full_name, rng
+            )
             team_code = rng.choice(["A", "B", "C", "D"]) + str(rng.randint(1, 4))
 
             cur.execute(
@@ -322,7 +339,9 @@ def seed_shifts_and_assignments(
             assigned[scode] = team
 
             for emp in team:
-                emp_ref = dirty_employee_ref(emp.employee_id, emp.badge_id, emp.full_name, rng)
+                emp_ref = dirty_employee_ref(
+                    emp.employee_id, emp.badge_id, emp.full_name, rng
+                )
                 role_ref = rng.choice(ROLE_VARIANTS)
 
                 # Clock times with occasional missing values
@@ -355,12 +374,13 @@ def seed_shifts_and_assignments(
 # INCIDENTS AND MAINTENANCE
 # =============================================================================
 
+
 def build_machine_zone_lookup(
     cur: sqlite3.Cursor, machines: List[Machine]
 ) -> Dict[str, str]:
     """Build machine_code -> zone_code mapping from layout_raw (best effort)."""
     default_zone = "Z-03"
-    
+
     cur.execute("SELECT machine_ref_raw, zone_ref_raw FROM layout_raw")
     rows = cur.fetchall()
 
@@ -375,7 +395,7 @@ def build_machine_zone_lookup(
     for m in machines:
         md = "".join(ch for ch in m.machine_code if ch.isdigit()).zfill(3)
         candidates = [zr for (mr, zr) in rows if norm_machine(mr) == md and zr]
-        
+
         if candidates:
             best = None
             for c in candidates:
@@ -402,20 +422,20 @@ def seed_incidents_and_maintenance(
 ) -> int:
     """
     Generate incidents and correlated maintenance logs.
-    
+
     Returns count of incidents created.
     """
     # Build outlier sets
     machine_codes = [m.machine_code for m in machines]
     bad_machine_codes = set(c for c in BAD_MACHINE_CODES if c in machine_codes)
-    
+
     # Add random bad machines if needed
     if len(bad_machine_codes) < 3:
         additional = rng.sample(machine_codes, k=min(3, len(machine_codes)))
         bad_machine_codes.update(additional)
 
     bad_employee_ids = set(
-        e.employee_id 
+        e.employee_id
         for e in rng.sample(employees, k=min(NUM_BAD_EMPLOYEES, len(employees)))
     )
 
@@ -423,7 +443,7 @@ def seed_incidents_and_maintenance(
     zone_by_machine = build_machine_zone_lookup(cur, machines)
 
     incidents_created = 0
-    
+
     for scode in shift_codes:
         suffix = scode.split("-")[-1]
         lam = BASE_INCIDENT_LAMBDA * SHIFT_RISK.get(suffix, 1.0)
@@ -448,11 +468,13 @@ def seed_incidents_and_maintenance(
         day = datetime.strptime(scode.split("-")[1], "%Y%m%d")
         shift_times = {"D": (6, 14), "S": (14, 22), "N": (22, 30)}
         sh_start, sh_end = shift_times.get(suffix, (6, 14))
-        
+
         sdt = datetime(day.year, day.month, day.day, sh_start, 0, 0)
         edt = datetime(day.year, day.month, day.day, min(sh_end, 23), 59, 59)
         if suffix == "N":
-            edt = datetime(day.year, day.month, day.day, 23, 59, 59) + timedelta(hours=6)
+            edt = datetime(day.year, day.month, day.day, 23, 59, 59) + timedelta(
+                hours=6
+            )
 
         for _ in range(k):
             # Select machine (weighted by type + bad status)
@@ -504,11 +526,15 @@ def seed_incidents_and_maintenance(
                     rng.choice(["Z-01", "Z-02", "Z-03", "Z-04", "Z-05", "Z-06"]), rng
                 )
 
-            employee_ref = dirty_employee_ref(emp.employee_id, emp.badge_id, emp.full_name, rng)
+            employee_ref = dirty_employee_ref(
+                emp.employee_id, emp.badge_id, emp.full_name, rng
+            )
 
             # Shift reference (6% chance of missing/wrong)
             if rng.random() < 0.06:
-                shift_ref = rng.choice([None, "", "n/a", make_shift_code(day, rng.choice(["D", "S", "N"]))])
+                shift_ref = rng.choice(
+                    [None, "", "n/a", make_shift_code(day, rng.choice(["D", "S", "N"]))]
+                )
             else:
                 shift_ref = rng.choice([scode, scode.lower(), f" {scode} "])
 
@@ -523,9 +549,21 @@ def seed_incidents_and_maintenance(
                     dirty_dt(inc_time, rng),
                     dirty_dt(rep_time, rng),
                     shift_ref,
-                    employee_ref if rng.random() > 0.04 else rng.choice(["", "UNKNOWN", None]),
-                    machine_ref if rng.random() > 0.03 else rng.choice(["", "MX-404", None]),
-                    zone_ref if rng.random() > 0.02 else rng.choice(["", "ZONE-UNKNOWN", None]),
+                    (
+                        employee_ref
+                        if rng.random() > 0.04
+                        else rng.choice(["", "UNKNOWN", None])
+                    ),
+                    (
+                        machine_ref
+                        if rng.random() > 0.03
+                        else rng.choice(["", "MX-404", None])
+                    ),
+                    (
+                        zone_ref
+                        if rng.random() > 0.02
+                        else rng.choice(["", "ZONE-UNKNOWN", None])
+                    ),
                     incident_type_raw,
                     severity_raw,
                     description,
@@ -540,14 +578,18 @@ def seed_incidents_and_maintenance(
                 me = ms + timedelta(minutes=rng.randint(15, 240))
                 maint_type = rng.choice(MAINT_TYPE_VARIANTS)
                 notes = rng.choice(MAINTENANCE_NOTES)
-                
+
                 cur.execute(
                     "INSERT INTO maintenance_logs_raw(machine_ref_raw, maint_start_raw, maint_end_raw, "
                     "maint_type_raw, notes, created_at_iso) VALUES (?, ?, ?, ?, ?, ?)",
                     (
                         dirty_machine_ref(machine.machine_code, rng),
                         dirty_dt(ms, rng),
-                        dirty_dt(me, rng) if rng.random() > 0.08 else rng.choice(["", "n/a"]),
+                        (
+                            dirty_dt(me, rng)
+                            if rng.random() > 0.08
+                            else rng.choice(["", "n/a"])
+                        ),
                         maybe_typo(maint_type, rng),
                         notes,
                         iso_now(),
@@ -559,12 +601,10 @@ def seed_incidents_and_maintenance(
         m = rng.choice(machines)
         day_offset = rng.randint(0, 730)
         ms = start_day + timedelta(
-            days=day_offset, 
-            hours=rng.randint(0, 23), 
-            minutes=rng.randint(0, 59)
+            days=day_offset, hours=rng.randint(0, 23), minutes=rng.randint(0, 59)
         )
         me = ms + timedelta(minutes=rng.randint(20, 180))
-        
+
         cur.execute(
             "INSERT INTO maintenance_logs_raw(machine_ref_raw, maint_start_raw, maint_end_raw, "
             "maint_type_raw, notes, created_at_iso) VALUES (?, ?, ?, ?, ?, ?)",
@@ -585,11 +625,18 @@ def seed_incidents_and_maintenance(
 # MAIN
 # =============================================================================
 
+
 def main() -> None:
-    ap = argparse.ArgumentParser(description="Create and seed factory training database")
+    ap = argparse.ArgumentParser(
+        description="Create and seed factory training database"
+    )
     ap.add_argument("db_path", help="Path to SQLite database file to create")
-    ap.add_argument("--seed", type=int, default=42, help="Random seed for reproducible data")
-    ap.add_argument("--overwrite", action="store_true", help="Overwrite if db file exists")
+    ap.add_argument(
+        "--seed", type=int, default=42, help="Random seed for reproducible data"
+    )
+    ap.add_argument(
+        "--overwrite", action="store_true", help="Overwrite if db file exists"
+    )
     ap.add_argument("--start", default="2024-01-01", help="Start date (yyyy-mm-dd)")
     ap.add_argument("--end", default="2025-12-31", help="End date (yyyy-mm-dd)")
     ap.add_argument("--employees", type=int, default=60, help="Number of employees")
@@ -598,7 +645,9 @@ def main() -> None:
 
     if os.path.exists(args.db_path):
         if not args.overwrite:
-            raise SystemExit(f"DB already exists: {args.db_path} (use --overwrite to replace)")
+            raise SystemExit(
+                f"DB already exists: {args.db_path} (use --overwrite to replace)"
+            )
         os.remove(args.db_path)
 
     # Ensure output directory exists
@@ -617,11 +666,11 @@ def main() -> None:
 
     # Seed reference tables
     seed_reference_tables(cur)
-    
+
     # Generate dimension data
     employees = generate_employees(cur, rng, n=args.employees)
     machines = generate_machines(cur, rng, n=args.machines)
-    
+
     # Generate layout
     seed_layout_raw(cur, rng, machines)
 

@@ -6,20 +6,21 @@ A hands-on data cleaning and analysis workshop. Work with messy, inconsistent fa
 
 ## Workshop Overview
 
-| Part  | Focus                         | Format                              |
-| ----- | ----------------------------- | ----------------------------------- |
-| **1** | SQL Analysis & Data Cleaning  | 2 scenarios together, 2 independent |
-| **2** | Search & Transformation Layer | 1 together, 1-2 independent         |
-| **3** | Agentic Interface             | Discussion + optional extension     |
+| Part  | Focus                         | Format                          |
+| ----- | ----------------------------- | ------------------------------- |
+| **1** | SQL Analysis & Data Cleaning  | 3 together + 2 independent      |
+| **2** | Search & Transformation Layer | 1 together, 1-2 independent     |
+| **3** | Agentic Interface             | Discussion + optional extension |
 
 ### Part 1 Scenarios
 
-| #   | Question                                     | Format      | Key Challenge                    |
-| --- | -------------------------------------------- | ----------- | -------------------------------- |
-| 1   | Which 3 machines have the most incidents?    | Together    | `machine_ref_raw` normalization  |
-| 2   | Is the night shift more dangerous?           | Together    | Rate calculation + joins         |
-| 3   | Which 5 employees appear in most incidents?  | Independent | `employee_ref_raw` normalization |
-| 4   | Which machine type has highest failure rate? | Independent | Compound cleaning + joins        |
+| #   | Question                                     | Format      | Key Challenge                          |
+| --- | -------------------------------------------- | ----------- | -------------------------------------- |
+| 1   | Which 3 machines have the most incidents?    | Together    | `machine_ref_raw` normalization        |
+| 2   | Is the night shift more dangerous?           | Together    | Rate calculation + joins               |
+| 3   | Which 5 employees appear in most incidents?  | Independent | `employee_ref_raw` normalization       |
+| 4   | Which machine type has highest failure rate? | Independent | Compound cleaning + joins              |
+| 5   | When do problems cluster?                    | Together    | Time-based patterns → motivates Part 2 |
 
 ## Quick Start
 
@@ -35,17 +36,18 @@ sqlite3 data/factory_training.db "SELECT COUNT(*) FROM incident_reports_raw;"
 
 ```
 maint_db/
-├── PROBLEM.md           # 📖 Workshop instructions and challenges
-├── MAINT_DATA.md        # 📋 Data specification (instructor reference)
+├── PROBLEM.md               # 📖 Workshop instructions and challenges
+├── MAINT_DATA.md            # 📋 Data specification (instructor reference)
+├── DATA_CLEANING_APPROACH.md # 🔧 Pipeline patterns and best practices
 ├── data/
-│   └── factory_training.db   # The messy database to analyze
+│   └── factory_training.db  # The messy database to analyze
 ├── schema/
-│   └── schema.sql       # Database schema
-├── scripts/             # Data generation (instructor use)
+│   └── schema.sql           # Database schema
+├── scripts/                 # Data generation (instructor use)
 │   ├── create_factory_db.py
 │   ├── append_factory_data.py
 │   └── validate_data.py
-└── util/                # Shared helpers
+└── util/                    # Shared helpers
     └── data_helpers.py
 ```
 

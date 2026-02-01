@@ -8,15 +8,15 @@ This document defines the data schema, generation rules, and quality characteris
 
 A SQLite database simulating a manufacturing facility's operations over ~2 years.
 
-| Dimension | Target |
-|-----------|--------|
-| Employees | ~60 |
-| Machines | ~40 |
-| Machine Types | 6 |
-| Zones | 6 |
-| Shifts | ~2,200 (3 per day × ~730 days) |
-| Incidents | 400-600 |
-| Maintenance Logs | 200-350 |
+| Dimension        | Target                         |
+| ---------------- | ------------------------------ |
+| Employees        | ~60                            |
+| Machines         | ~40                            |
+| Machine Types    | 6                              |
+| Zones            | 6                              |
+| Shifts           | ~2,200 (3 per day × ~730 days) |
+| Incidents        | 400-600                        |
+| Maintenance Logs | 200-350                        |
 
 ---
 
@@ -27,6 +27,7 @@ A SQLite database simulating a manufacturing facility's operations over ~2 years
 These tables have consistent, well-formatted data with proper constraints.
 
 #### `machine_types`
+
 ```sql
 CREATE TABLE machine_types (
   machine_type_id INTEGER PRIMARY KEY,
@@ -37,16 +38,18 @@ CREATE TABLE machine_types (
 ```
 
 **Seed data:**
-| type_name | category | typical_mtbf_hours |
-|-----------|----------|-------------------|
-| Press | forming | 650 |
-| CNC | machining | 900 |
-| Conveyor | material_handling | 500 |
-| RobotArm | assembly | 1200 |
-| LaserCutter | cutting | 800 |
-| Mixer | processing | 700 |
+
+| type_name   | category          | typical_mtbf_hours |
+| ----------- | ----------------- | ------------------ |
+| Press       | forming           | 650                |
+| CNC         | machining         | 900                |
+| Conveyor    | material_handling | 500                |
+| RobotArm    | assembly          | 1200               |
+| LaserCutter | cutting           | 800                |
+| Mixer       | processing        | 700                |
 
 #### `incident_types`
+
 ```sql
 CREATE TABLE incident_types (
   incident_type_id INTEGER PRIMARY KEY,
@@ -57,18 +60,20 @@ CREATE TABLE incident_types (
 ```
 
 **Seed data:**
-| incident_type | category | default_severity |
-|---------------|----------|------------------|
-| machine_failure | equipment | high |
-| safety_violation | safety | medium |
-| near_miss | safety | low |
-| injury_minor | safety | medium |
-| injury_major | safety | high |
-| quality_defect | quality | low |
-| power_event | facility | medium |
-| unknown | other | low |
+
+| incident_type    | category  | default_severity |
+| ---------------- | --------- | ---------------- |
+| machine_failure  | equipment | high             |
+| safety_violation | safety    | medium           |
+| near_miss        | safety    | low              |
+| injury_minor     | safety    | medium           |
+| injury_major     | safety    | high             |
+| quality_defect   | quality   | low              |
+| power_event      | facility  | medium           |
+| unknown          | other     | low              |
 
 #### `zones`
+
 ```sql
 CREATE TABLE zones (
   zone_id INTEGER PRIMARY KEY,
@@ -78,20 +83,22 @@ CREATE TABLE zones (
 ```
 
 **Seed data:**
-| zone_code | zone_name |
-|-----------|-----------|
-| Z-01 | Inbound / Receiving |
-| Z-02 | Machining Bay |
-| Z-03 | Assembly Line |
-| Z-04 | Packaging |
-| Z-05 | Maintenance Corner |
-| Z-06 | Utilities / Power |
+
+| zone_code | zone_name           |
+| --------- | ------------------- |
+| Z-01      | Inbound / Receiving |
+| Z-02      | Machining Bay       |
+| Z-03      | Assembly Line       |
+| Z-04      | Packaging           |
+| Z-05      | Maintenance Corner  |
+| Z-06      | Utilities / Power   |
 
 ---
 
 ### Dimension Tables (Clean)
 
 #### `employees`
+
 ```sql
 CREATE TABLE employees (
   employee_id INTEGER PRIMARY KEY,
@@ -105,6 +112,7 @@ CREATE TABLE employees (
 ```
 
 **Generation rules:**
+
 - ~60 employees
 - Badge IDs: `B0001` through `B0060`
 - Names: Random from predefined lists (gender-neutral first names, diverse last names)
@@ -113,6 +121,7 @@ CREATE TABLE employees (
 - Status distribution: 92% active, 5% leave, 3% terminated
 
 #### `machines`
+
 ```sql
 CREATE TABLE machines (
   machine_id INTEGER PRIMARY KEY,
@@ -126,6 +135,7 @@ CREATE TABLE machines (
 ```
 
 **Generation rules:**
+
 - ~40 machines
 - Machine codes: `M-001` through `M-040`
 - Type distribution: Press and Conveyor more common (weight 3), CNC and LaserCutter medium (weight 2), others lower
@@ -140,6 +150,7 @@ CREATE TABLE machines (
 These tables simulate real-world data entry with inconsistencies.
 
 #### `layout_raw`
+
 ```sql
 CREATE TABLE layout_raw (
   layout_id INTEGER PRIMARY KEY,
@@ -154,12 +165,14 @@ CREATE TABLE layout_raw (
 ```
 
 **Generation rules:**
+
 - One row per machine (mostly)
 - 3 extra rows referencing non-existent machines (M-999, M-000, MX-404)
 - Machine placement by type: Press/CNC/LaserCutter → Z-02/Z-03, Conveyor/RobotArm → Z-03/Z-04, Mixer → Z-01/Z-05
 - 5% chance of random zone assignment (simulating outdated records)
 
 #### `shifts_raw`
+
 ```sql
 CREATE TABLE shifts_raw (
   shift_id INTEGER PRIMARY KEY,
@@ -174,18 +187,21 @@ CREATE TABLE shifts_raw (
 ```
 
 **Shift definitions:**
-| Shift | Start | End | Suffix |
-|-------|-------|-----|--------|
-| Day | 06:00 | 14:00 | D |
-| Swing | 14:00 | 22:00 | S |
-| Night | 22:00 | 06:00 (+1 day) | N |
+
+| Shift | Start | End            | Suffix |
+| ----- | ----- | -------------- | ------ |
+| Day   | 06:00 | 14:00          | D      |
+| Swing | 14:00 | 22:00          | S      |
+| Night | 22:00 | 06:00 (+1 day) | N      |
 
 **Generation rules:**
+
 - 3 shifts per day for entire date range (default: 2024-01-01 to 2025-12-31)
 - Shift code format: `S-20240115-D` (date + shift suffix)
 - Timestamps use dirty format (see Date Formats below)
 
 #### `shift_assignments_raw`
+
 ```sql
 CREATE TABLE shift_assignments_raw (
   assignment_id INTEGER PRIMARY KEY,
@@ -199,11 +215,13 @@ CREATE TABLE shift_assignments_raw (
 ```
 
 **Generation rules:**
+
 - ~18 employees assigned per shift (gaussian, min 8)
 - Clock-in: shift_start ± random(-10 to +20 minutes), 4% chance missing/invalid
 - Clock-out: shift_end ± random(-20 to +25 minutes), 6% chance missing/invalid
 
 #### `incident_reports_raw`
+
 ```sql
 CREATE TABLE incident_reports_raw (
   incident_id INTEGER PRIMARY KEY,
@@ -221,6 +239,7 @@ CREATE TABLE incident_reports_raw (
 ```
 
 #### `maintenance_logs_raw`
+
 ```sql
 CREATE TABLE maintenance_logs_raw (
   maintenance_id INTEGER PRIMARY KEY,
@@ -234,6 +253,7 @@ CREATE TABLE maintenance_logs_raw (
 ```
 
 **Generation rules:**
+
 - 65% of machine_failure incidents generate a correlated maintenance log
 - Maintenance starts 5-120 minutes after incident
 - Duration: 15-240 minutes
@@ -247,19 +267,20 @@ CREATE TABLE maintenance_logs_raw (
 
 Timestamps are stored as strings in one of these formats (randomly chosen):
 
-| Format | Example |
-|--------|---------|
-| `%Y-%m-%d %H:%M:%S` | 2024-03-15 14:32:45 |
-| `%Y-%m-%d %H:%M` | 2024-03-15 14:32 |
-| `%Y-%m-%d %H` | 2024-03-15 14 |
-| `%Y-%m-%d` | 2024-03-15 |
-| `%m/%d/%Y %H:%M:%S` | 03/15/2024 14:32:45 |
-| `%m/%d/%Y %H:%M` | 03/15/2024 14:32 |
-| `%m/%d/%Y` | 03/15/2024 |
+| Format              | Example              |
+| ------------------- | -------------------- |
+| `%Y-%m-%d %H:%M:%S` | 2024-03-15 14:32:45  |
+| `%Y-%m-%d %H:%M`    | 2024-03-15 14:32     |
+| `%Y-%m-%d %H`       | 2024-03-15 14        |
+| `%Y-%m-%d`          | 2024-03-15           |
+| `%m/%d/%Y %H:%M:%S` | 03/15/2024 14:32:45  |
+| `%m/%d/%Y %H:%M`    | 03/15/2024 14:32     |
+| `%m/%d/%Y`          | 03/15/2024           |
 | `%d-%b-%Y %H:%M:%S` | 15-Mar-2024 14:32:45 |
-| `%d-%b-%Y %H:%M` | 15-Mar-2024 14:32 |
+| `%d-%b-%Y %H:%M`    | 15-Mar-2024 14:32    |
 
 **Additional noise:**
+
 - 8% chance of leading/trailing whitespace
 - 10% chance of time truncation (drop minutes/seconds)
 - 5% chance of dropping time entirely
@@ -268,18 +289,19 @@ Timestamps are stored as strings in one of these formats (randomly chosen):
 
 An employee (ID=42, badge=B0042, name="Casey Patel") may appear as:
 
-| Variant | Example |
-|---------|---------|
-| Badge ID | B0042 |
-| Badge lowercase | b0042 |
-| EMP-ID format | EMP-42 |
-| Just the number | 42 |
-| Full name | Casey Patel |
-| Name uppercase | CASEY PATEL |
-| Badge with spaces | ` B0042 ` |
-| Badge: prefix | Badge:B0042 |
+| Variant           | Example     |
+| ----------------- | ----------- |
+| Badge ID          | B0042       |
+| Badge lowercase   | b0042       |
+| EMP-ID format     | EMP-42      |
+| Just the number   | 42          |
+| Full name         | Casey Patel |
+| Name uppercase    | CASEY PATEL |
+| Badge with spaces | ` B0042 `   |
+| Badge: prefix     | Badge:B0042 |
 
 **Bogus references (6% chance):**
+
 - Non-existent badge: `B9XXX`
 - Non-existent ID: `EMP-9XXX`
 - Placeholder: `UNKNOWN`, `n/a`, empty string
@@ -288,28 +310,28 @@ An employee (ID=42, badge=B0042, name="Casey Patel") may appear as:
 
 A machine (code=M-017) may appear as:
 
-| Variant | Example |
-|---------|---------|
-| Canonical | M-017 |
-| Lowercase | m-017 |
-| No hyphen | M017 |
-| Just digits | 017 |
-| "Machine" prefix | Machine 017 |
-| M prefix | M17 |
-| Extra spaces | ` M-017 ` |
-| Wrong prefix (15% chance) | MX-017 |
+| Variant                   | Example     |
+| ------------------------- | ----------- |
+| Canonical                 | M-017       |
+| Lowercase                 | m-017       |
+| No hyphen                 | M017        |
+| Just digits               | 017         |
+| "Machine" prefix          | Machine 017 |
+| M prefix                  | M17         |
+| Extra spaces              | ` M-017 `   |
+| Wrong prefix (15% chance) | MX-017      |
 
 ### Zone Reference Variants
 
 A zone (code=Z-02) may appear as:
 
-| Variant | Example |
-|---------|---------|
-| Canonical | Z-02 |
-| Lowercase | z-02 |
-| No hyphen | Z02 |
+| Variant       | Example   |
+| ------------- | --------- |
+| Canonical     | Z-02      |
+| Lowercase     | z-02      |
+| No hyphen     | Z02       |
 | "Zone" prefix | Zone Z-02 |
-| Extra spaces | ` Z-02 ` |
+| Extra spaces  | ` Z-02 `  |
 
 **Bogus references (3% chance):** `Z-99`, `ZONE-UNKNOWN`, empty string
 
@@ -317,29 +339,30 @@ A zone (code=Z-02) may appear as:
 
 Each canonical type has multiple representations:
 
-| Canonical | Variants |
-|-----------|----------|
-| machine_failure | Machine Failure, machine_fail, MECH_FAIL, Mach failure, `machine failure ` |
-| safety_violation | Safety Violation, SAFETY_VIOL, safety-violation, Safety vio. |
-| near_miss | Near Miss, near-miss, NEAR_MISS, Nearmiss |
-| injury_minor | Minor Injury, injury_minor, MIN_INJ, Minor inj. |
-| injury_major | Major Injury, injury_major, MAJ_INJ, Major inj. |
-| quality_defect | Quality Defect, quality_defect, QA_DEFECT, Quality issue |
-| power_event | Power Event, power_event, PWR_EVT, Power fluctuation |
-| unknown | Unknown, UNK, ?, n/a |
+| Canonical        | Variants                                                                  |
+| ---------------- | ------------------------------------------------------------------------- |
+| machine_failure  | Machine Failure, machine_fail, MECH_FAIL, Mach failure, `machine failure` |
+| safety_violation | Safety Violation, SAFETY_VIOL, safety-violation, Safety vio.              |
+| near_miss        | Near Miss, near-miss, NEAR_MISS, Nearmiss                                 |
+| injury_minor     | Minor Injury, injury_minor, MIN_INJ, Minor inj.                           |
+| injury_major     | Major Injury, injury_major, MAJ_INJ, Major inj.                           |
+| quality_defect   | Quality Defect, quality_defect, QA_DEFECT, Quality issue                  |
+| power_event      | Power Event, power_event, PWR_EVT, Power fluctuation                      |
+| unknown          | Unknown, UNK, ?, n/a                                                      |
 
 ### Severity Variants
 
-| Canonical | Variants |
-|-----------|----------|
-| low | low, LOW, 1, sev1, minor, L |
-| medium | medium, MED, 2, sev2, moderate, M |
-| high | high, HIGH, 3, sev3, major, H |
-| critical | critical, CRIT, 4, sev4, catastrophic, C |
+| Canonical | Variants                                 |
+| --------- | ---------------------------------------- |
+| low       | low, LOW, 1, sev1, minor, L              |
+| medium    | medium, MED, 2, sev2, moderate, M        |
+| high      | high, HIGH, 3, sev3, major, H            |
+| critical  | critical, CRIT, 4, sev4, catastrophic, C |
 
 ### Role Variants
 
 Roles in `shift_assignments_raw` use inconsistent naming:
+
 - Operator, OPR
 - Tech, Technician
 - Supervisor, Supv
@@ -360,6 +383,7 @@ These patterns MUST be present in the generated data for the exercise to work:
 ### Bad Machines
 
 Specific machines have 3-4x the normal incident rate:
+
 - **M-003** — forced outlier
 - **M-017** — forced outlier
 - **M-024** — forced outlier
@@ -371,14 +395,14 @@ Implementation: When selecting machine for incident, these get weight multiplier
 
 Some machine types are more prone to incidents:
 
-| Type | Multiplier |
-|------|------------|
-| Press | 1.9 |
-| Conveyor | 1.6 |
-| LaserCutter | 1.3 |
-| CNC | 1.2 |
-| Mixer | 1.1 |
-| RobotArm | 1.05 |
+| Type        | Multiplier |
+| ----------- | ---------- |
+| Press       | 1.9        |
+| Conveyor    | 1.6        |
+| LaserCutter | 1.3        |
+| CNC         | 1.2        |
+| Mixer       | 1.1        |
+| RobotArm    | 1.05       |
 
 ### Bad Employees
 
@@ -389,27 +413,27 @@ Some machine types are more prone to incidents:
 Night shift has significantly higher incident rate:
 
 | Shift | Multiplier |
-|-------|------------|
-| Day | 1.0 |
-| Swing | 1.15 |
-| Night | 1.45 |
+| ----- | ---------- |
+| Day   | 1.0        |
+| Swing | 1.15       |
+| Night | 1.45       |
 
 ### Incident Type Distribution by Machine
 
-| Machine Type | Bias |
-|--------------|------|
-| Press | +15% machine_failure, +5% injury_minor |
-| Conveyor | +12% machine_failure, +6% near_miss |
-| LaserCutter | +10% quality_defect, +6% safety_violation |
+| Machine Type | Bias                                      |
+| ------------ | ----------------------------------------- |
+| Press        | +15% machine_failure, +5% injury_minor    |
+| Conveyor     | +12% machine_failure, +6% near_miss       |
+| LaserCutter  | +10% quality_defect, +6% safety_violation |
 
 ### Severity Distribution by Incident Type
 
-| Incident Type | Severity Distribution |
-|---------------|----------------------|
-| injury_major | 70% high, 30% critical |
-| machine_failure | 55% medium, 45% high |
+| Incident Type                 | Severity Distribution         |
+| ----------------------------- | ----------------------------- |
+| injury_major                  | 70% high, 30% critical        |
+| machine_failure               | 55% medium, 45% high          |
 | safety_violation, power_event | 25% low, 55% medium, 20% high |
-| Others | 70% low, 30% medium |
+| Others                        | 70% low, 30% medium           |
 
 ---
 
