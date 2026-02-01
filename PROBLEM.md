@@ -20,35 +20,15 @@ Your job is to **make sense of this data** so the company can answer questions l
 
 ---
 
-## The Exercise
+## Workshop Structure
 
-This exercise has two main parts:
+This workshop has three parts, each following a **"together, then independent"** pattern:
 
-### Part 1: SQL Analysis
-
-Using only SQL, clean and analyze the data to answer questions about incidents, machines, employees, and shifts.
-
-**What you'll learn:**
-- Parsing inconsistent date/time formats
-- Entity resolution (matching messy references to canonical records)
-- Creating views to build a clean query layer
-- Writing analytical queries with joins, aggregations, and window functions
-
-### Part 2: Search & Transformation Layer
-
-Build a searchable layer on top of the cleaned data. This could be:
-- **OpenSearch/Elasticsearch** for full-text search and faceted filtering
-- **A data warehouse** with pre-computed aggregations
-- **Another approach** of your choosing
-
-**What you'll learn:**
-- Designing search-friendly data models
-- Building ETL/transformation pipelines
-- Handling incremental updates (the factory keeps generating new data!)
-
-### Part 3 (Advanced): Agentic Interface
-
-Build an AI-powered interface that can answer natural language questions about the data.
+| Part  | Focus                         | Together          | Independent        |
+| ----- | ----------------------------- | ----------------- | ------------------ |
+| **1** | SQL Analysis & Data Cleaning  | 2 scenarios       | 2 scenarios        |
+| **2** | Search & Transformation Layer | 1 scenario        | 1-2 scenarios      |
+| **3** | Agentic Interface (Advanced)  | Discussion + demo | Optional extension |
 
 ---
 
@@ -104,48 +84,148 @@ The database contains ~10 tables:
 
 ---
 
-## Part 1 Challenges
+# Part 1: SQL Analysis & Data Cleaning
 
-### Level 1: Understand the Mess
+## 1A: Together (Instructor-Led)
 
-Before cleaning, understand what you're dealing with:
-
-1. How many distinct date formats appear in `incident_time_raw`?
-2. What are all the ways employees are referenced in `incident_reports_raw`?
-3. How many incident records can't be matched to a valid employee?
-
-### Level 2: Build a Clean Layer
-
-Create views or tables that normalize the raw data:
-
-1. **`incidents_clean`** — Incidents with parsed timestamps and resolved foreign keys
-2. **`shifts_clean`** — Shifts with proper start/end timestamps
-3. **`assignments_clean`** — Shift assignments with resolved employee IDs
-
-### Level 3: Answer Business Questions
-
-Using your clean layer, write queries to answer:
-
-1. Which 3 machines have the most incidents?
-2. What's the incident rate per shift type (Day/Swing/Night)?
-3. Which 5 employees appear in the most incidents?
-4. Which machine type has the highest failure rate?
-5. Which zone has the most incidents per machine?
-6. Is there a correlation between time of day and incident severity?
-
-### Level 4: Validate Your Work
-
-Your analysis should reveal these patterns (if it doesn't, your cleaning may have issues):
-
-- Some specific machines have **2-3x** the average incident rate
-- Night shift has a notably higher incident rate than day shift
-- A small number of employees appear in a disproportionate share of incidents
+We'll work through these two scenarios as a group, demonstrating the full workflow:
+1. Examine the schema and identify what we need
+2. Explore the messy fields
+3. Discuss cleaning strategies (views, tables, migration)
+4. Implement the solution
+5. Answer the question and visualize the result
 
 ---
 
-## Part 2 Challenges
+### Scenario 1: Which 3 machines have the most incidents?
 
-### The Problem with SQL
+**The Mess:** `machine_ref_raw` in `incident_reports_raw`
+
+A single machine (e.g., M-017) appears in the data as:
+- `M-017`, `m-017`, `M017`, `m017`
+- `Machine 17`, `Machine 017`
+- `017`, `17`
+- `MX-017` (typos)
+- Leading/trailing whitespace
+
+**Your Task:**
+1. Explore the distinct values in `machine_ref_raw`
+2. Create a cleaning strategy (view or table) that maps raw values → canonical `machine_code`
+3. Build a query that counts incidents per machine
+4. Identify the top 3 problem machines
+
+**Skills Practiced:**
+- Pattern matching with `LIKE`, `GLOB`, or `CASE`
+- String functions: `TRIM()`, `UPPER()`, `REPLACE()`
+- Creating views for a clean query layer
+- Basic aggregation with `GROUP BY` and `ORDER BY`
+
+**Expected Insight:** You should find that M-003, M-017, and M-024 have significantly more incidents than average (they're known problem machines).
+
+---
+
+### Scenario 2: Is the night shift really more dangerous?
+
+**The Question:** What's the incident rate per shift type (Day/Swing/Night)?
+
+**The Mess:** Connecting incidents to shifts
+
+The good news: `shifts_raw.shift_name` is already clean (Day, Swing, Night).  
+The challenge: You need to calculate a **rate** (incidents per shift), not just a count.
+
+**Your Task:**
+1. Count how many shifts of each type exist
+2. Count how many incidents occurred during each shift type
+3. Calculate the incident rate: `incidents / shift_count`
+4. Visualize with a simple bar chart (optional, using matplotlib)
+
+**Skills Practiced:**
+- Joining `incident_reports_raw` → `shifts_raw` via `shift_code_ref_raw`
+- Handling missing/bad shift references
+- Rate calculations vs raw counts
+- Basic data visualization
+
+**Expected Insight:** Night shift should show a notably higher incident rate (~1.3-1.5x) compared to day shift.
+
+---
+
+## 1B: Independent Work
+
+Now apply what you learned to these two scenarios. The cleaning challenges are **different** — you can't just copy-paste the previous solutions.
+
+---
+
+### Scenario 3: Which 5 employees appear in the most incidents?
+
+**The Mess:** `employee_ref_raw` in `incident_reports_raw`
+
+Employee references are even messier than machines. The same person appears as:
+- Badge ID: `B0042`, `b0042`, `B 0042`
+- Employee ID format: `EMP-42`, `EMP42`
+- Full name: `Casey Patel`, `CASEY PATEL`, `casey patel`
+- Just the number: `42`
+- Placeholder values: `UNKNOWN`, `n/a`, empty string
+
+**Your Task:**
+1. Explore the distinct patterns in `employee_ref_raw`
+2. Create a cleaning strategy that maps raw values → `employee_id` or `badge_id`
+3. Handle unmatchable references gracefully (count them separately)
+4. Identify the top 5 employees by incident involvement
+
+**Hints:**
+- The `employees` table has `badge_id`, `first_name`, `last_name`, and `employee_id`
+- You may need multiple matching strategies (badge pattern, name lookup, ID extraction)
+- Some references are genuinely unmatchable — that's okay, just track how many
+
+**Expected Insight:** A small number of employees (4-5) appear in a disproportionate share of incidents.
+
+---
+
+### Scenario 4: Which machine type has the highest failure rate?
+
+**The Mess:** Multiple fields need cleaning
+
+This scenario chains together multiple cleaning steps:
+1. Clean `incident_type_raw` to identify machine failures
+2. Clean `machine_ref_raw` to match to actual machines
+3. Join through `machines` → `machine_types`
+4. Calculate failure rate per machine type
+
+**Incident Type Variants:**
+- `machine_failure`, `Machine Failure`, `MECH_FAIL`
+- `machine_fail`, `Mach failure`, `machine failure ` (trailing space)
+- Typos: `Mahcine Failure`, `machin_failure`
+
+**Your Task:**
+1. Create a view/logic to normalize `incident_type_raw` → canonical type
+2. Filter to only machine failure incidents
+3. Join to get machine type for each incident
+4. Calculate: failures per machine type (or per machine of that type)
+
+**Hints:**
+- Use `incident_types` table for canonical names
+- Consider: is "failure rate" = total failures, or failures per machine of that type?
+- The `machines` table links `machine_code` → `machine_type_id`
+
+**Expected Insight:** Press and Conveyor types should show higher failure rates than RobotArm or Mixer.
+
+---
+
+## Part 1 Success Criteria
+
+When you've completed Part 1, you should be able to:
+
+- [ ] Parse and normalize machine references → match 95%+ of incidents to valid machines
+- [ ] Parse and normalize employee references → match 90%+ of incidents to valid employees  
+- [ ] Normalize incident types → map all variants to canonical types
+- [ ] Answer all four scenario questions with clean, readable queries
+- [ ] Your answers reveal the expected outlier patterns
+
+---
+
+# Part 2: Search & Transformation Layer
+
+## The Problem with SQL
 
 SQL is great for answering specific questions, but:
 - Complex queries are slow to write and run
@@ -153,28 +233,60 @@ SQL is great for answering specific questions, but:
 - Aggregations must be recomputed each time
 - It's hard to explore the data interactively
 
-### Your Task
+## 2A: Together (Instructor-Led)
 
-Build a layer that makes the data easier to explore:
+We'll discuss and implement:
+1. Why you might want a searchable layer on top of your cleaned data
+2. Options: OpenSearch/Elasticsearch, ClickHouse, DuckDB, Postgres with indexing
+3. Designing a search-friendly document model
+4. Building a simple ETL pipeline
 
-1. **Full-text search** — Find incidents by description keywords
-2. **Faceted filtering** — Filter by machine, employee, zone, severity, date range
-3. **Pre-computed aggregations** — Incident counts, trends, rankings
-4. **Incremental updates** — Handle new data without full rebuild
+### Demo Scenario: Searchable Incident Index
 
-### Suggested Approach: OpenSearch
+Transform your cleaned incident data into a searchable format with:
+- Full-text search on descriptions
+- Faceted filtering by machine, employee, zone, severity
+- Date range queries
+- Pre-computed aggregations
 
-OpenSearch (or Elasticsearch) is well-suited for this:
-- Built-in full-text search
-- Faceted aggregations
-- Date histograms for trends
-- Good query performance
+## 2B: Independent Work
 
-But you're welcome to use other tools: ClickHouse, DuckDB, Postgres with proper indexing, etc.
+### Scenario 5: Build Your Own Search Layer
+
+Using the approach demonstrated, build a searchable layer that:
+1. Indexes all cleaned incidents
+2. Supports at least 3 filter dimensions
+3. Handles incremental updates (test with `scripts/append_factory_data.py`)
 
 ---
 
-## Staying Current
+# Part 3: Agentic Interface (Advanced)
+
+## Discussion: Why Add an AI Layer?
+
+Once you have clean, searchable data, an AI agent can:
+- Answer natural language questions
+- Combine multiple queries to answer complex questions
+- Explain its reasoning and cite sources
+- Handle ambiguity gracefully
+
+## Key Considerations
+
+- What tools/functions does the agent need access to?
+- How do you prevent hallucination with grounded data?
+- When should the agent query vs. when should it use cached aggregations?
+- How do you handle questions the data can't answer?
+
+## Optional Extension
+
+Build a simple agent that can answer questions like:
+- "What happened with machine M-017 last month?"
+- "Show me all safety incidents on night shift"
+- "Which zone should we prioritize for safety improvements?"
+
+---
+
+# Staying Current
 
 The factory keeps operating! New shifts, incidents, and maintenance logs are added regularly.
 
@@ -183,30 +295,32 @@ Your pipeline should handle incremental updates:
 - Your clean layer updates automatically (or with a simple command)
 - Your search layer stays in sync
 
-We'll test this by running `scripts/append_factory_data.py` to add more data.
+Test this by running:
+```bash
+python scripts/append_factory_data.py --days 7
+```
 
 ---
 
-## Success Criteria
-
-### Part 1 Complete When:
-- [ ] You can parse all date formats in the raw tables
-- [ ] You can resolve 90%+ of employee/machine references
-- [ ] You can answer the Level 3 questions with SQL
-- [ ] Your answers reveal the expected outlier patterns
-
-### Part 2 Complete When:
-- [ ] You have a searchable interface for the data
-- [ ] You can filter and search across multiple dimensions
-- [ ] Your layer handles incremental updates
-
----
-
-## Tips
+# Tips
 
 1. **Start with exploration** — Spend time understanding the data before trying to clean it
 2. **Document your assumptions** — What do you do with records you can't match?
 3. **Test incrementally** — Verify each cleaning step before moving on
 4. **Think about edge cases** — What if a machine was retired? What if an employee was terminated?
+5. **Good enough is good enough** — 95% match rate is often fine; chasing 100% has diminishing returns
+
+---
+
+# Quick Reference: What's Messy Where
+
+| Field               | Table                          | Variants                                    |
+| ------------------- | ------------------------------ | ------------------------------------------- |
+| `machine_ref_raw`   | incidents, maintenance, layout | M-017, m017, Machine 17, 017                |
+| `employee_ref_raw`  | incidents, assignments         | B0042, EMP-42, Casey Patel, 42              |
+| `zone_ref_raw`      | incidents, layout              | Z-02, z02, Zone Z-02                        |
+| `incident_type_raw` | incidents                      | machine_failure, MECH_FAIL, Machine Failure |
+| `severity_raw`      | incidents                      | low, LOW, 1, minor, L                       |
+| `*_time_raw`        | all raw tables                 | 9 different date formats                    |
 
 Good luck!
