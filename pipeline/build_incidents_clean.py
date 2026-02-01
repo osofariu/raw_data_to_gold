@@ -56,31 +56,6 @@ def register_udfs(conn: sqlite3.Connection, employees: list) -> None:
     print("✓ Registered 5 normalization UDFs")
 
 
-def cleanup_old_tables(conn: sqlite3.Connection) -> None:
-    """Remove scenario-specific tables that are now superseded."""
-    old_tables = [
-        "incidents_normalized",
-        "incidents_resolved",
-        "incidents_with_shift",
-        "incidents_with_employee",
-        "incidents_full",
-    ]
-    old_views = [
-        "v_incidents_normalized",
-        "v_incidents_resolved",
-        "v_incidents_with_shift",
-        "v_incidents_with_employee",
-        "v_incidents_full",
-    ]
-
-    for table in old_tables:
-        conn.execute(f"DROP TABLE IF EXISTS {table}")
-    for view in old_views:
-        conn.execute(f"DROP VIEW IF EXISTS {view}")
-
-    print("✓ Cleaned up old scenario-specific tables/views")
-
-
 def create_view(conn: sqlite3.Connection) -> None:
     """Create the comprehensive incidents view with all normalizations."""
 
@@ -160,9 +135,6 @@ def main():
 
         # Register all UDFs
         register_udfs(conn, employees)
-
-        # Clean up old tables
-        cleanup_old_tables(conn)
 
         # Create view and table
         create_view(conn)

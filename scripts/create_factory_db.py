@@ -476,7 +476,9 @@ def seed_incidents_and_maintenance(
                 hours=6
             )
 
-        for _ in range(k):
+        cluster_anchor = None  # Track cluster center for cascading incidents
+
+        for i in range(k):
             # Select machine (weighted by type + bad status)
             weights = []
             for m in machines:
@@ -500,9 +502,21 @@ def seed_incidents_and_maintenance(
             else:
                 emp = rng.choice(employees)
 
-            # Incident time within shift
-            delta_seconds = rng.randint(0, int((edt - sdt).total_seconds()))
-            inc_time = sdt + timedelta(seconds=delta_seconds)
+            # Incident time within shift - with clustering tendency
+            # First incident or 40% chance: pick fresh random time
+            # Otherwise: cluster near previous incident (within ±2 hours)
+            if i == 0 or rng.random() < 0.4:
+                delta_seconds = rng.randint(0, int((edt - sdt).total_seconds()))
+                cluster_anchor = sdt + timedelta(seconds=delta_seconds)
+                inc_time = cluster_anchor
+            else:
+                # Cluster near previous incident
+                offset_minutes = rng.randint(-120, 120)  # ±2 hours
+                inc_time = cluster_anchor + timedelta(minutes=offset_minutes)
+                # Clamp to shift bounds
+                inc_time = max(sdt, min(edt, inc_time))
+                cluster_anchor = inc_time  # Update anchor for next potential cluster
+
             rep_time = inc_time + timedelta(minutes=rng.randint(1, 180))
 
             canonical_type = choose_incident_type_for_machine(machine.machine_type, rng)
