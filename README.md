@@ -34,7 +34,7 @@ sqlite3 data/factory_training.db "SELECT COUNT(*) FROM incident_reports_raw;"
 
 ## Project Structure
 
-```
+```sh
 maint_db/
 ├── PROBLEM.md               # 📖 Workshop instructions and challenges
 ├── MAINT_DATA.md            # 📋 Data specification (instructor reference)
