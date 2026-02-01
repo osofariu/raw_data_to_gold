@@ -10,7 +10,7 @@ Output:
     - incidents_clean: Materialized table for querying
 
 Usage:
-    uv run python pipeline/run_all.py
+    uv run python pipeline/build_incidents_clean.py
 
 After running, all scenarios can query from the single incidents_clean table.
 """
