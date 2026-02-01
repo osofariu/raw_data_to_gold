@@ -68,19 +68,23 @@ pytest tests/test_normalize.py -v
 
 ---
 
-## Step 4: Create the Normalized Tables
+## Step 4: Create the Views and Tables
 
-Run the pipeline script to create the cleaned tables:
+Run the pipeline script:
 
 ```bash
 uv run python pipeline/run_scenario1.py
 ```
 
-This creates:
-1. `incidents_normalized` — normalizes `machine_ref_raw` → `machine_code`
-2. `incidents_resolved` — joins to get `machine_id`
+This creates **layered views** (the transformation logic):
+1. `v_incidents_normalized` — normalizes `machine_ref_raw` → `machine_code`
+2. `v_incidents_resolved` — joins to get `machine_id`
 
-> **Why tables, not views?** The normalization uses a Python function registered with SQLite. Tables persist the results so you can query them from any SQL tool.
+And **materializes them to tables** (for querying):
+1. `incidents_normalized`
+2. `incidents_resolved`
+
+> **Why both?** Views define the transformation with clear lineage (easy to debug). Tables persist the results so you can query from any SQL tool (sqlite3 CLI, DBeaver, etc).
 
 ---
 
