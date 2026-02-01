@@ -53,3 +53,43 @@ def normalize_machine_ref(raw: str | None) -> str | None:
             return f"M-{num:03d}"
 
     return None
+
+
+def normalize_shift_code(raw: str | None) -> str | None:
+    """
+    Normalize a raw shift code reference to canonical format (S-YYYYMMDD-{D|S|N}).
+
+    Args:
+        raw: The raw shift_code_ref_raw string from incident_reports_raw
+
+    Returns:
+        Canonical shift code (e.g., 'S-20240115-D') or None if unmatchable
+
+    Examples:
+        >>> normalize_shift_code('S-20240115-D')
+        'S-20240115-D'
+        >>> normalize_shift_code('s-20240115-d')
+        'S-20240115-D'
+        >>> normalize_shift_code(' S-20240115-N ')
+        'S-20240115-N'
+        >>> normalize_shift_code('')
+        >>> normalize_shift_code('n/a')
+        >>> normalize_shift_code(None)
+    """
+    if raw is None:
+        return None
+
+    # Clean whitespace and uppercase
+    cleaned = raw.strip().upper()
+
+    # Handle empty/placeholder values
+    if cleaned == "" or cleaned in ("N/A", "UNKNOWN", "NULL"):
+        return None
+
+    # Validate format: S-YYYYMMDD-{D|S|N}
+    # Pattern: S- followed by 8 digits, hyphen, then D/S/N
+    match = re.match(r"^S-(\d{8})-([DSN])$", cleaned)
+    if match:
+        return cleaned
+
+    return None

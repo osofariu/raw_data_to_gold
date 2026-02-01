@@ -3,7 +3,7 @@ Tests for normalization functions.
 """
 
 import pytest
-from pipeline.normalize import normalize_machine_ref
+from pipeline.normalize import normalize_machine_ref, normalize_shift_code
 
 
 class TestNormalizeMachineRef:
@@ -77,3 +77,57 @@ class TestNormalizeMachineRef:
         # Maximum valid
         assert normalize_machine_ref("M-040") == "M-040"
         assert normalize_machine_ref("40") == "M-040"
+
+
+class TestNormalizeShiftCode:
+    """Tests for normalize_shift_code function."""
+
+    # Canonical format
+    def test_canonical_format(self):
+        assert normalize_shift_code("S-20240115-D") == "S-20240115-D"
+        assert normalize_shift_code("S-20240115-S") == "S-20240115-S"
+        assert normalize_shift_code("S-20240115-N") == "S-20240115-N"
+
+    # Case variations
+    def test_lowercase(self):
+        assert normalize_shift_code("s-20240115-d") == "S-20240115-D"
+        assert normalize_shift_code("s-20240115-s") == "S-20240115-S"
+        assert normalize_shift_code("s-20240115-n") == "S-20240115-N"
+
+    # Whitespace
+    def test_whitespace(self):
+        assert normalize_shift_code(" S-20240115-D ") == "S-20240115-D"
+        assert normalize_shift_code("  S-20240115-N  ") == "S-20240115-N"
+        assert normalize_shift_code("\tS-20240115-S\n") == "S-20240115-S"
+
+    # Empty/missing values
+    def test_empty_values(self):
+        assert normalize_shift_code(None) is None
+        assert normalize_shift_code("") is None
+        assert normalize_shift_code("   ") is None
+
+    # Placeholder values
+    def test_placeholder_values(self):
+        assert normalize_shift_code("n/a") is None
+        assert normalize_shift_code("N/A") is None
+        assert normalize_shift_code("unknown") is None
+        assert normalize_shift_code("UNKNOWN") is None
+        assert normalize_shift_code("null") is None
+
+    # Invalid formats
+    def test_invalid_formats(self):
+        # Missing parts
+        assert normalize_shift_code("S-20240115") is None
+        assert normalize_shift_code("20240115-D") is None
+        # Wrong prefix
+        assert normalize_shift_code("X-20240115-D") is None
+        # Wrong shift type
+        assert normalize_shift_code("S-20240115-X") is None
+        # Wrong date length
+        assert normalize_shift_code("S-2024011-D") is None
+        assert normalize_shift_code("S-202401155-D") is None
+
+    # Mixed case
+    def test_mixed_case(self):
+        assert normalize_shift_code("S-20240115-d") == "S-20240115-D"
+        assert normalize_shift_code("s-20240115-D") == "S-20240115-D"
