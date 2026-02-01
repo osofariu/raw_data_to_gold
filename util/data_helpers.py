@@ -193,9 +193,17 @@ BASE_INCIDENT_LAMBDA = 0.08
 # =============================================================================
 
 
+# Fixed reference date for created_at fields (ensures reproducible DB)
+# Set to a date after the typical data range (2024-01-01 to 2025-12-31)
+FIXED_CREATED_AT = datetime(2026, 1, 15, 12, 0, 0)
+
+
 def iso_now(dt: Optional[datetime] = None) -> str:
-    """Return ISO timestamp string (for created_at fields)."""
-    return (dt or datetime.utcnow()).replace(microsecond=0).isoformat()
+    """Return ISO timestamp string (for created_at fields).
+
+    Uses a fixed reference date by default to ensure reproducible database creation.
+    """
+    return (dt or FIXED_CREATED_AT).replace(microsecond=0).isoformat()
 
 
 def dirty_dt(dt: datetime, rng: random.Random) -> str:
