@@ -31,7 +31,8 @@ def create_views(conn: sqlite3.Connection) -> None:
 
     # Full incident normalization view (combines multiple normalizations)
     conn.execute("DROP VIEW IF EXISTS v_incidents_full")
-    conn.execute("""
+    conn.execute(
+        """
         CREATE VIEW v_incidents_full AS
         SELECT 
             incident_id,
@@ -48,7 +49,8 @@ def create_views(conn: sqlite3.Connection) -> None:
             description,
             created_at_iso
         FROM incident_reports_raw
-    """)
+    """
+    )
 
     print("✓ Created view: v_incidents_full")
 
@@ -57,10 +59,12 @@ def materialize_tables(conn: sqlite3.Connection) -> None:
     """Materialize views to tables for querying."""
 
     conn.execute("DROP TABLE IF EXISTS incidents_full")
-    conn.execute("""
+    conn.execute(
+        """
         CREATE TABLE incidents_full AS
         SELECT * FROM v_incidents_full
-    """)
+    """
+    )
 
     conn.commit()
     print("✓ Materialized table: incidents_full")
@@ -81,7 +85,9 @@ def main():
     finally:
         conn.close()
 
-    print("\nNext: Run the SQL queries in problems/scenario4.md to explore the results.")
+    print(
+        "\nNext: Run the SQL queries in problems/scenario4.md to explore the results."
+    )
 
 
 if __name__ == "__main__":
