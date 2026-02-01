@@ -152,8 +152,158 @@ FROM incident_with_neighbors;
 
 ---
 
+## Step 7: Group Overlapping Windows into Distinct Clusters (Gap-and-Island)
+
+The previous queries count incidents with neighbors, but don't group them into distinct **cluster events**. 
+
+For example, if incidents A, B, C, D happen within a 4-hour window, they form ONE cluster event — but our query shows them as 4 separate rows.
+
+### The Gap-and-Island Approach
+
+1. Order all incidents by time
+2. Check if each incident is within 4 hours of the previous one
+3. When there's a gap > 4 hours, start a new cluster
+4. Assign cluster IDs and aggregate
+
+### Identify Cluster Boundaries
+
+```sql
+WITH ordered_incidents AS (
+    SELECT 
+        incident_id,
+        incident_time,
+        LAG(incident_time) OVER (ORDER BY incident_time) as prev_time
+    FROM incidents_clean
+    WHERE incident_time IS NOT NULL
+),
+with_gaps AS (
+    SELECT 
+        incident_id,
+        incident_time,
+        prev_time,
+        CASE 
+            WHEN prev_time IS NULL THEN 1
+            WHEN (julianday(incident_time) - julianday(prev_time)) * 24 > 4 THEN 1
+            ELSE 0
+        END as is_new_cluster
+    FROM ordered_incidents
+),
+with_cluster_id AS (
+    SELECT 
+        incident_id,
+        incident_time,
+        SUM(is_new_cluster) OVER (ORDER BY incident_time) as cluster_id
+    FROM with_gaps
+)
+SELECT cluster_id, incident_id, incident_time
+FROM with_cluster_id
+ORDER BY incident_time;
+```
+
+### Count Distinct Cluster Events (3+ incidents)
+
+```sql
+WITH ordered_incidents AS (
+    SELECT 
+        incident_id,
+        incident_time,
+        LAG(incident_time) OVER (ORDER BY incident_time) as prev_time
+    FROM incidents_clean
+    WHERE incident_time IS NOT NULL
+),
+with_gaps AS (
+    SELECT 
+        incident_id,
+        incident_time,
+        CASE 
+            WHEN prev_time IS NULL THEN 1
+            WHEN (julianday(incident_time) - julianday(prev_time)) * 24 > 4 THEN 1
+            ELSE 0
+        END as is_new_cluster
+    FROM ordered_incidents
+),
+with_cluster_id AS (
+    SELECT 
+        incident_id,
+        incident_time,
+        SUM(is_new_cluster) OVER (ORDER BY incident_time) as cluster_id
+    FROM with_gaps
+),
+cluster_sizes AS (
+    SELECT 
+        cluster_id,
+        COUNT(*) as size,
+        MIN(incident_time) as start_time,
+        MAX(incident_time) as end_time
+    FROM with_cluster_id
+    GROUP BY cluster_id
+)
+SELECT 
+    cluster_id,
+    size,
+    start_time,
+    end_time,
+    ROUND((julianday(end_time) - julianday(start_time)) * 24, 1) as duration_hours
+FROM cluster_sizes
+WHERE size >= 3
+ORDER BY size DESC;
+```
+
+### Summary: How Many Cluster Events?
+
+```sql
+WITH ordered_incidents AS (
+    SELECT 
+        incident_id,
+        incident_time,
+        LAG(incident_time) OVER (ORDER BY incident_time) as prev_time
+    FROM incidents_clean
+    WHERE incident_time IS NOT NULL
+),
+with_gaps AS (
+    SELECT 
+        incident_id,
+        incident_time,
+        CASE 
+            WHEN prev_time IS NULL THEN 1
+            WHEN (julianday(incident_time) - julianday(prev_time)) * 24 > 4 THEN 1
+            ELSE 0
+        END as is_new_cluster
+    FROM ordered_incidents
+),
+with_cluster_id AS (
+    SELECT 
+        incident_id,
+        incident_time,
+        SUM(is_new_cluster) OVER (ORDER BY incident_time) as cluster_id
+    FROM with_gaps
+),
+cluster_sizes AS (
+    SELECT cluster_id, COUNT(*) as size
+    FROM with_cluster_id
+    GROUP BY cluster_id
+)
+SELECT 
+    COUNT(*) as total_cluster_events,
+    SUM(CASE WHEN size >= 3 THEN 1 ELSE 0 END) as clusters_3plus,
+    SUM(CASE WHEN size >= 5 THEN 1 ELSE 0 END) as clusters_5plus,
+    MAX(size) as largest_cluster
+FROM cluster_sizes;
+```
+
+### Why This Matters
+
+| Metric | Value | Business Meaning |
+|--------|-------|------------------|
+| Total cluster events | Many | Groups of temporally close incidents |
+| Clusters with 3+ | Few | Significant cascading events |
+| Largest cluster | ? | Worst day — investigate root cause |
+
+---
+
 ## Success Criteria
 
 - [ ] Time parse rate ≥95%
 - [ ] Can run time-based clustering query
 - [ ] Cluster analysis shows meaningful patterns
+- [ ] Can identify distinct cluster events using gap-and-island
