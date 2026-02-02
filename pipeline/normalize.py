@@ -381,3 +381,139 @@ def parse_incident_time(raw: str | None) -> str | None:
             time_part = f"{h:02d}:00:00"
 
     return f"{date_part} {time_part}"
+
+
+def normalize_zone_ref(raw: str | None) -> str | None:
+    """
+    Normalize a raw zone reference to canonical format (Z-XX).
+
+    Args:
+        raw: The raw zone_ref_raw string from incident_reports_raw
+
+    Returns:
+        Canonical zone code (e.g., 'Z-03') or None if unmatchable
+
+    Examples:
+        >>> normalize_zone_ref('Z-03')
+        'Z-03'
+        >>> normalize_zone_ref('z-03')
+        'Z-03'
+        >>> normalize_zone_ref('Z03')
+        'Z-03'
+        >>> normalize_zone_ref('Zone Z-03')
+        'Z-03'
+        >>> normalize_zone_ref(' Z-03 ')
+        'Z-03'
+        >>> normalize_zone_ref('Z-99')  # Invalid zone
+        >>> normalize_zone_ref('ZONE-UNKNOWN')
+        >>> normalize_zone_ref('')
+        >>> normalize_zone_ref(None)
+    """
+    if raw is None:
+        return None
+
+    # Clean whitespace and uppercase
+    cleaned = raw.strip().upper()
+
+    # Handle empty/placeholder values
+    if cleaned == "" or cleaned in ("N/A", "UNKNOWN", "NULL", "ZONE-UNKNOWN"):
+        return None
+
+    # Try to extract a zone number
+    # Pattern: optional "ZONE" prefix, then Z, optional hyphen, then digits
+    match = re.search(r"Z-?(\d{1,2})", cleaned)
+    if match:
+        num = int(match.group(1))
+        # Valid zones are 1-6
+        if 1 <= num <= 6:
+            return f"Z-{num:02d}"
+
+    return None
+
+
+# Mapping of severity variants to canonical values
+_SEVERITY_PATTERNS: dict[str, list[str]] = {
+    "low": ["low", "l", "1", "sev1", "minor"],
+    "medium": ["medium", "med", "m", "2", "sev2", "moderate", "mdeium"],
+    "high": ["high", "h", "3", "sev3", "major"],
+    "critical": ["critical", "crit", "4", "5", "sev4", "sev5"],
+}
+
+# Build reverse lookup: variant -> canonical
+_SEVERITY_LOOKUP: dict[str, str] = {}
+for canonical, variants in _SEVERITY_PATTERNS.items():
+    for variant in variants:
+        _SEVERITY_LOOKUP[variant.lower()] = canonical
+
+
+def normalize_severity(raw: str | None) -> str | None:
+    """
+    Normalize a raw severity value to canonical format.
+
+    Canonical values: 'low', 'medium', 'high', 'critical'
+
+    Args:
+        raw: The raw severity_raw string from incident_reports_raw
+
+    Returns:
+        Canonical severity or None if unmatchable
+
+    Examples:
+        >>> normalize_severity('LOW')
+        'low'
+        >>> normalize_severity('sev1')
+        'low'
+        >>> normalize_severity('1')
+        'low'
+        >>> normalize_severity('MED')
+        'medium'
+        >>> normalize_severity('moderate')
+        'medium'
+        >>> normalize_severity('mdeium')  # typo
+        'medium'
+        >>> normalize_severity('HIGH')
+        'high'
+        >>> normalize_severity('sev4')
+        'critical'
+        >>> normalize_severity('')
+        >>> normalize_severity(None)
+    """
+    if raw is None:
+        return None
+
+    # Clean whitespace and lowercase
+    cleaned = str(raw).strip().lower()
+
+    # Handle empty values
+    if cleaned == "" or cleaned in ("n/a", "unknown", "null"):
+        return None
+
+    # Direct lookup
+    if cleaned in _SEVERITY_LOOKUP:
+        return _SEVERITY_LOOKUP[cleaned]
+
+    return None
+
+
+def parse_reported_time(raw: str | None) -> str | None:
+    """
+    Parse a raw reported time string to ISO format (YYYY-MM-DD HH:MM:SS).
+
+    This function handles the same formats as parse_incident_time().
+
+    Args:
+        raw: The raw reported_time_raw string
+
+    Returns:
+        ISO formatted datetime (YYYY-MM-DD HH:MM:SS) or None if unparseable
+
+    Examples:
+        >>> parse_reported_time('2024-04-18')
+        '2024-04-18 00:00:00'
+        >>> parse_reported_time('31-May-2025 02:20:12')
+        '2025-05-31 02:20:12'
+        >>> parse_reported_time('12/10/2024')
+        '2024-12-10 00:00:00'
+    """
+    # Reuse the same parsing logic as incident_time
+    return parse_incident_time(raw)

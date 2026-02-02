@@ -9,6 +9,9 @@ from pipeline.normalize import (
     create_employee_normalizer,
     normalize_incident_type,
     parse_incident_time,
+    normalize_zone_ref,
+    normalize_severity,
+    parse_reported_time,
 )
 
 
@@ -363,3 +366,188 @@ class TestParseIncidentTime:
         assert parse_incident_time("not a date") is None
         assert parse_incident_time("2024/07/05") is None  # Wrong separator for ISO
         assert parse_incident_time("July 5, 2024") is None  # Unsupported format
+
+
+class TestNormalizeZoneRef:
+    """Tests for normalize_zone_ref function."""
+
+    # Canonical format
+    def test_canonical_format(self):
+        assert normalize_zone_ref("Z-01") == "Z-01"
+        assert normalize_zone_ref("Z-03") == "Z-03"
+        assert normalize_zone_ref("Z-06") == "Z-06"
+
+    # Case variations
+    def test_lowercase(self):
+        assert normalize_zone_ref("z-03") == "Z-03"
+        assert normalize_zone_ref("z-01") == "Z-01"
+
+    # No hyphen
+    def test_no_hyphen(self):
+        assert normalize_zone_ref("Z03") == "Z-03"
+        assert normalize_zone_ref("z03") == "Z-03"
+        assert normalize_zone_ref("Z1") == "Z-01"
+
+    # Verbose format with "Zone" prefix
+    def test_verbose_prefix(self):
+        assert normalize_zone_ref("Zone Z-03") == "Z-03"
+        assert normalize_zone_ref("ZONE Z-02") == "Z-02"
+        assert normalize_zone_ref("Zone Z03") == "Z-03"
+
+    # Whitespace
+    def test_whitespace(self):
+        assert normalize_zone_ref(" Z-03 ") == "Z-03"
+        assert normalize_zone_ref("  Z03  ") == "Z-03"
+        assert normalize_zone_ref("\tZ-01\n") == "Z-01"
+
+    # All valid zones (1-6)
+    def test_all_valid_zones(self):
+        for i in range(1, 7):
+            assert normalize_zone_ref(f"Z-0{i}") == f"Z-0{i}"
+            assert normalize_zone_ref(f"Z{i}") == f"Z-0{i}"
+
+    # Invalid zone numbers
+    def test_invalid_zone_number(self):
+        assert normalize_zone_ref("Z-00") is None
+        assert normalize_zone_ref("Z-07") is None
+        assert normalize_zone_ref("Z-99") is None
+        assert normalize_zone_ref("Z-10") is None
+
+    # Placeholder values
+    def test_placeholder_values(self):
+        assert normalize_zone_ref("ZONE-UNKNOWN") is None
+        assert normalize_zone_ref("n/a") is None
+        assert normalize_zone_ref("N/A") is None
+        assert normalize_zone_ref("unknown") is None
+        assert normalize_zone_ref("UNKNOWN") is None
+
+    # Empty/null values
+    def test_empty_values(self):
+        assert normalize_zone_ref(None) is None
+        assert normalize_zone_ref("") is None
+        assert normalize_zone_ref("   ") is None
+
+
+class TestNormalizeSeverity:
+    """Tests for normalize_severity function."""
+
+    # Canonical values
+    def test_canonical_values(self):
+        assert normalize_severity("low") == "low"
+        assert normalize_severity("medium") == "medium"
+        assert normalize_severity("high") == "high"
+        assert normalize_severity("critical") == "critical"
+
+    # Uppercase
+    def test_uppercase(self):
+        assert normalize_severity("LOW") == "low"
+        assert normalize_severity("MED") == "medium"
+        assert normalize_severity("HIGH") == "high"
+        assert normalize_severity("CRITICAL") == "critical"
+
+    # Numeric values
+    def test_numeric_values(self):
+        assert normalize_severity("1") == "low"
+        assert normalize_severity("2") == "medium"
+        assert normalize_severity("3") == "high"
+        assert normalize_severity("4") == "critical"
+        assert normalize_severity("5") == "critical"
+
+    # sev pattern
+    def test_sev_pattern(self):
+        assert normalize_severity("sev1") == "low"
+        assert normalize_severity("sev2") == "medium"
+        assert normalize_severity("sev3") == "high"
+        assert normalize_severity("sev4") == "critical"
+        assert normalize_severity("SEV1") == "low"
+        assert normalize_severity("SEV2") == "medium"
+
+    # Word variants
+    def test_word_variants(self):
+        assert normalize_severity("minor") == "low"
+        assert normalize_severity("moderate") == "medium"
+        assert normalize_severity("major") == "high"
+        assert normalize_severity("crit") == "critical"
+
+    # Single letter
+    def test_single_letter(self):
+        assert normalize_severity("L") == "low"
+        assert normalize_severity("M") == "medium"
+        assert normalize_severity("H") == "high"
+        assert normalize_severity("l") == "low"
+        assert normalize_severity("m") == "medium"
+        assert normalize_severity("h") == "high"
+
+    # Typos
+    def test_typos(self):
+        assert normalize_severity("mdeium") == "medium"
+
+    # Whitespace
+    def test_whitespace(self):
+        assert normalize_severity(" low ") == "low"
+        assert normalize_severity("  HIGH  ") == "high"
+        assert normalize_severity("\tmedium\n") == "medium"
+
+    # Empty/null values
+    def test_empty_values(self):
+        assert normalize_severity(None) is None
+        assert normalize_severity("") is None
+        assert normalize_severity("   ") is None
+
+    # Placeholder values
+    def test_placeholder_values(self):
+        assert normalize_severity("n/a") is None
+        assert normalize_severity("N/A") is None
+        assert normalize_severity("unknown") is None
+
+    # Invalid/unrecognized
+    def test_unrecognized(self):
+        assert normalize_severity("garbage") is None
+        assert normalize_severity("super high") is None
+
+
+class TestParseReportedTime:
+    """Tests for parse_reported_time function."""
+
+    # ISO format
+    def test_iso_date(self):
+        assert parse_reported_time("2024-04-18") == "2024-04-18 00:00:00"
+        assert parse_reported_time("2024-01-31") == "2024-01-31 00:00:00"
+
+    # DD-Mon-YYYY format
+    def test_dmy_full_time(self):
+        assert parse_reported_time("31-May-2025 02:20:12") == "2025-05-31 02:20:12"
+        assert parse_reported_time("30-Aug-2025 22:06:17") == "2025-08-30 22:06:17"
+
+    def test_dmy_partial_time(self):
+        assert parse_reported_time("29-Oct-2025 21:02") == "2025-10-29 21:02:00"
+        assert parse_reported_time("29-May-2024 03:20") == "2024-05-29 03:20:00"
+
+    def test_dmy_hour_only(self):
+        assert parse_reported_time("29-Oct-2024 00") == "2024-10-29 00:00:00"
+        assert parse_reported_time("29-Nov-2025 16") == "2025-11-29 16:00:00"
+
+    def test_dmy_no_time(self):
+        assert parse_reported_time("30-Jan-2024") == "2024-01-30 00:00:00"
+        assert parse_reported_time("31-Mar-2025") == "2025-03-31 00:00:00"
+
+    # MM/DD/YYYY format
+    def test_mdy_format(self):
+        assert parse_reported_time("12/10/2024") == "2024-12-10 00:00:00"
+        assert parse_reported_time("05/23/2024") == "2024-05-23 00:00:00"
+
+    # Whitespace
+    def test_whitespace(self):
+        assert parse_reported_time(" 2024-04-18 ") == "2024-04-18 00:00:00"
+        assert parse_reported_time("  31-May-2025 02:20:12  ") == "2025-05-31 02:20:12"
+
+    # Empty/null values
+    def test_empty_values(self):
+        assert parse_reported_time(None) is None
+        assert parse_reported_time("") is None
+        assert parse_reported_time("   ") is None
+
+    # Invalid formats
+    def test_invalid(self):
+        assert parse_reported_time("not a date") is None
+        assert parse_reported_time("garbage") is None
