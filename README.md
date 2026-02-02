@@ -22,7 +22,16 @@ A hands-on data cleaning and analysis workshop. Work with messy, inconsistent fa
 | 4   | Which machine type has highest failure rate? | Independent | Compound cleaning + joins              |
 | 5   | When do problems cluster?                    | Together    | Time-based patterns → motivates Part 2 |
 
-## Quick Start
+There's also a scenario 6 that cleans up the rest of the dirty references in `incident_reports_raw`, but that's 
+more of a catch-up exercise.
+
+### Part 2
+
+This is started in another branch - feature/opensearch-indexer.
+There's just enough there to index incidents_clean and set up OpenSearch running in docker ready to answer questions.
+
+
+## Quick Start (to refine later)
 
 ```bash
 # View the database
